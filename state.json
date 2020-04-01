@@ -1,0 +1,189 @@
+{
+  "NextPlayer": 1,
+  "LastPlayerToTake": 2,
+  "Deck": [],
+  "Table": [],
+  "Players": [
+    {
+      "Id": 1,
+      "Hand": [],
+      "Grabbed": [
+        {
+          "Suite": 4,
+          "Value": 2
+        },
+        {
+          "Suite": 1,
+          "Value": 2
+        },
+        {
+          "Suite": 2,
+          "Value": 9
+        },
+        {
+          "Suite": 4,
+          "Value": 9
+        },
+        {
+          "Suite": 1,
+          "Value": 8
+        },
+        {
+          "Suite": 4,
+          "Value": 5
+        },
+        {
+          "Suite": 2,
+          "Value": 3
+        },
+        {
+          "Suite": 4,
+          "Value": 4
+        },
+        {
+          "Suite": 2,
+          "Value": 4
+        },
+        {
+          "Suite": 3,
+          "Value": 2
+        },
+        {
+          "Suite": 1,
+          "Value": 1
+        },
+        {
+          "Suite": 4,
+          "Value": 1
+        },
+        {
+          "Suite": 1,
+          "Value": 7
+        },
+        {
+          "Suite": 3,
+          "Value": 7
+        },
+        {
+          "Suite": 1,
+          "Value": 10
+        },
+        {
+          "Suite": 3,
+          "Value": 9
+        },
+        {
+          "Suite": 2,
+          "Value": 1
+        }
+      ],
+      "Scopas": 0,
+      "Awards": [
+        "SetteBello"
+      ]
+    },
+    {
+      "Id": 2,
+      "Hand": [],
+      "Grabbed": [
+        {
+          "Suite": 4,
+          "Value": 8
+        },
+        {
+          "Suite": 3,
+          "Value": 8
+        },
+        {
+          "Suite": 2,
+          "Value": 10
+        },
+        {
+          "Suite": 3,
+          "Value": 10
+        },
+        {
+          "Suite": 2,
+          "Value": 5
+        },
+        {
+          "Suite": 1,
+          "Value": 5
+        },
+        {
+          "Suite": 1,
+          "Value": 9
+        },
+        {
+          "Suite": 3,
+          "Value": 1
+        },
+        {
+          "Suite": 2,
+          "Value": 8
+        },
+        {
+          "Suite": 4,
+          "Value": 3
+        },
+        {
+          "Suite": 3,
+          "Value": 3
+        },
+        {
+          "Suite": 1,
+          "Value": 4
+        },
+        {
+          "Suite": 3,
+          "Value": 4
+        },
+        {
+          "Suite": 1,
+          "Value": 6
+        },
+        {
+          "Suite": 4,
+          "Value": 6
+        },
+        {
+          "Suite": 3,
+          "Value": 5
+        },
+        {
+          "Suite": 2,
+          "Value": 2
+        },
+        {
+          "Suite": 1,
+          "Value": 3
+        },
+        {
+          "Suite": 3,
+          "Value": 6
+        },
+        {
+          "Suite": 2,
+          "Value": 6
+        },
+        {
+          "Suite": 4,
+          "Value": 7
+        },
+        {
+          "Suite": 2,
+          "Value": 7
+        },
+        {
+          "Suite": 4,
+          "Value": 10
+        }
+      ],
+      "Scopas": 0,
+      "Awards": [
+        "Cards",
+        "Primera"
+      ]
+    }
+  ]
+}
