@@ -1,22 +1,22 @@
 package main
 
 import (
-	"math/rand"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"github.com/sbadame/scopa/scopa"
 	"golang.org/x/net/websocket"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
-	"flag"
 )
 
 var (
-	port = flag.Int("port", 8080, "The port to listen on for requests.")
+	port   = flag.Int("port", 8080, "The port to listen on for requests.")
 	random = flag.Bool("random", false, "When set to true, actually uses a random seed.")
 )
 
@@ -110,13 +110,13 @@ func main() {
 		update := make(chan struct{}, 1000)
 		clients = append(clients, update)
 
-		// Push the initial state, then keep pushing a state 
+		// Push the initial state, then keep pushing a state
 		for {
 			u := struct {
-				Type string
+				Type  string
 				State scopa.State
-			} {
-				Type: "STATE",
+			}{
+				Type:  "STATE",
 				State: state,
 			}
 			if j, err := json.Marshal(u); err != nil {
@@ -147,8 +147,8 @@ func main() {
 
 		// Update all of the clients, that there is some new state.
 		for _, u := range clients {
-		  var s struct{}
-		  u <- s
+			var s struct{}
+			u <- s
 		}
 	})
 
@@ -171,10 +171,10 @@ func main() {
 
 		// Update all of the clients, that there is some new state.
 		for _, u := range clients {
-		  var s struct{}
-		  u <- s
+			var s struct{}
+			u <- s
 		}
 	})
 
-	log.Fatal(http.ListenAndServe(":" + strconv.Itoa(*port), nil))
+	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*port), nil))
 }
