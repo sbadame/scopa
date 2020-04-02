@@ -9,8 +9,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	. "github.com/sbadame/scopa/scopa"
+	"os"
 )
 
 func main() {
