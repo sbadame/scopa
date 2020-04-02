@@ -4,12 +4,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/sbadame/scopa/scopa"
+	"golang.org/x/net/websocket"
 	"io"
 	"log"
 	"net/http"
 	"strconv"
-	"time"
 	"sync"
+	"time"
+	"flag"
+)
+
+var (
+	port = flag.Int("port", 8080, "The port to listen on for requests.")
+	random = flag.Bool("random", false, "When set to true, actually uses a random seed.")
 )
 
 // To test with no random seed:
@@ -20,13 +27,13 @@ import (
 
 type drop struct {
 	PlayerId int
-	Card scopa.Card
+	Card     scopa.Card
 }
 
 type take struct {
 	PlayerId int
-	Card  scopa.Card
-	Table []scopa.Card
+	Card     scopa.Card
+	Table    []scopa.Card
 }
 
 func parseRequestJson(w http.ResponseWriter, r *http.Request, v interface{}) bool {
@@ -52,38 +59,68 @@ func parseRequestJson(w http.ResponseWriter, r *http.Request, v interface{}) boo
 	return true
 }
 
+// Keep track of the number of players that have "joined".
+// Give them a player id.
+var playerCount int
+var playerMux sync.Mutex
+
+func allocatePlayerId() (int, error) {
+	playerMux.Lock()
+	defer playerMux.Unlock()
+
+	if playerCount >= 2 {
+		return -1, fmt.Errorf("{\"Message\": \"Game is full!\"}")
+	}
+
+	playerCount += 1
+	return playerCount, nil
+}
+
 func main() {
 	state := scopa.NewGame()
 	gameId := time.Now().Unix()
-
-	// Keep track of the number of players that have "joined".
-	// Give them a player id.
-	var playerCount int
-	var playerMux sync.Mutex
+	clients := make([]chan struct{}, 0)
 
 	// Serve resources for testing.
 	http.Handle("/", http.FileServer(http.Dir("./web")))
 
-	http.HandleFunc("/join", func(w http.ResponseWriter, r *http.Request) {
-		playerMux.Lock()
-		defer playerMux.Unlock()
-		if playerCount >= 2 {
-			w.WriteHeader(400)
-			io.WriteString(w, fmt.Sprintf("{\"Message\": \"Game is full!\"}"))
-			return
-		}
-		io.WriteString(w, fmt.Sprintf("{\"PlayerId\": %d, \"GameId\": %d}", playerCount + 1, gameId))
-		playerCount += 1
+	// Reset the game...
+	http.HandleFunc("/reset", func(w http.ResponseWriter, r *http.Request) {
+		state = scopa.NewGame()
+		playerCount = 0
+		gameId = time.Now().Unix()
+		clients = make([]chan struct{}, 0)
 	})
 
-	http.HandleFunc("/state", func(w http.ResponseWriter, r *http.Request) {
-		if j, err := json.Marshal(state); err != nil {
-			w.WriteHeader(500)
-			io.WriteString(w, fmt.Sprintf("Error encoding json: %v", err))
+	http.Handle("/join", websocket.Handler(func(ws *websocket.Conn) {
+		if playerId, err := allocatePlayerId(); err != nil {
+			ws.Close()
+			return
 		} else {
-			w.Write(j)
+			io.WriteString(ws, fmt.Sprintf("{\"Type\": \"INIT\", \"PlayerId\": %d, \"GameId\": %d}", playerId, gameId))
 		}
-	})
+
+		// "Register" a channel to listen to changes to.
+		update := make(chan struct{}, 1000)
+		clients = append(clients, update)
+
+		// Push the initial state, then keep pushing a state 
+		for {
+			u := struct {
+				Type string
+				State scopa.State
+			} {
+				Type: "STATE",
+				State: state,
+			}
+			if j, err := json.Marshal(u); err != nil {
+				io.WriteString(ws, fmt.Sprintf("{\"Type\": \"ERROR\", \"Message\": \"%v\"}", err))
+			} else {
+				ws.Write(j)
+			}
+			<-update
+		}
+	}))
 
 	http.HandleFunc("/drop", func(w http.ResponseWriter, r *http.Request) {
 		var d drop
@@ -100,6 +137,12 @@ func main() {
 		if err := state.Drop(d.Card); err != nil {
 			w.WriteHeader(500)
 			io.WriteString(w, fmt.Sprintf("Couldn't drop: %v", err))
+		}
+
+		// Update all of the clients, that there is some new state.
+		for _, u := range clients {
+		  var s struct{}
+		  u <- s
 		}
 	})
 
@@ -119,7 +162,13 @@ func main() {
 			w.WriteHeader(500)
 			io.WriteString(w, fmt.Sprintf("Couldn't take: %v", err))
 		}
+
+		// Update all of the clients, that there is some new state.
+		for _, u := range clients {
+		  var s struct{}
+		  u <- s
+		}
 	})
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":" + strconv.Itoa(*port), nil))
 }
