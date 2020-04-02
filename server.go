@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math/rand"
 	"encoding/json"
 	"fmt"
 	"github.com/sbadame/scopa/scopa"
@@ -77,6 +78,11 @@ func allocatePlayerId() (int, error) {
 }
 
 func main() {
+	flag.Parse()
+	if *random {
+		rand.Seed(time.Now().Unix())
+	}
+
 	state := scopa.NewGame()
 	gameId := time.Now().Unix()
 	clients := make([]chan struct{}, 0)
