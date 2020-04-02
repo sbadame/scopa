@@ -24,9 +24,9 @@ type Suite int
 const (
 	UnknownSuite Suite = iota
 	Denari
-	Spade
 	Coppe
 	Bastoni
+	Spade
 )
 
 type Card struct {
