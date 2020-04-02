@@ -1,0 +1,101 @@
+<!doctype html>
+
+<html>
+<head>
+  <title>Scopa</title>
+  <!-- This is a responsive site, don't make browsers lie about their size... -->
+  <meta charset="utf-8" name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+     .cards {
+	background: url(cards.jpg);
+	background-size: 1000px;
+	display: inline-block;
+	height: 170px;
+	width: 100px;
+     }
+
+     .selected {
+       border: solid red 2px;
+     }
+  </style>
+</head>
+<body>
+	<script>
+		'use strict';
+		// From: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
+		async function post(url, data) {
+			const response = await fetch(url, {
+				method: 'POST',
+				mode: 'same-origin',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				redirect: 'error',
+				body: JSON.stringify(data)
+			});
+			const body = await response.text();
+			if (body.length === 0) {
+				return {}
+			} else {
+				return JSON.parse(body);
+			}
+		}
+
+		var playerId = 0;
+                var state = null;
+
+                function renderCard(suite, value) {
+                  const card = document.createElement('div');
+                  card.className = 'cards';
+                  card.style.backgroundPositionX = `-${(value - 1) * 100}px`;
+                  card.style.backgroundPositionY = `-${(suite - 1) * 170}px`;
+                  card.dataset.value = value;
+                  card.dataset.suite = suite;
+                  card.addEventListener('click', (e) => {
+                    e.target.classList.toggle('selected');
+                  });
+                  console.log(card);
+                  return card;
+                }
+
+		function renderState(state) {
+			const game = document.querySelector('#game');
+			game.innerHTML = '';
+
+			// Who's turn?
+			const turn = document.createElement('div');
+			if (playerId === state.NextPlayer) {
+				turn.innerHTML = "Your turn";
+			} else {
+				turn.innerHTML = "Waiting for the other player.";
+			}
+			game.appendChild(turn);
+
+			// What's on the table?
+			for (let t of state.Table) {
+				game.appendChild(renderCard(t.Suite, t.Value));
+			}
+
+                        game.appendChild(document.createElement('br'));
+
+                        // What's in the hand?
+                        for (let t of state.Players[playerId - 1].Hand) {
+				game.appendChild(renderCard(t.Suite, t.Value));
+                        }
+		}
+
+		// Get the state of the game
+           	fetch("/join").then((response) => {return response.json()}).then((s) => {
+			playerId = s.PlayerId;
+		});
+           	fetch("/state").then((response) => {return response.json()}).then((s) => {
+                        state = s;
+			console.log(s);
+			renderState(s);
+		});
+		// post("/take", {"PlayerId": 1, "Card": {"Suite":4, "Value":2}, "Table": [{"Suite": 1, "Value": 2}]})
+		// 	.then((j) => {console.log(j)});
+	</script>
+	<div id="game"></div>
+</body>
+</html>
