@@ -111,6 +111,40 @@ func (s *State) Check() error {
 		return fmt.Errorf("Failed 40 card check, found %d", c)
 	}
 
+	// Check that no card appears more than once.
+	m := make(map[Card]bool)
+	// Deck
+	for _, i := range s.Deck {
+		if m[i] {
+			return fmt.Errorf("Deck has repeated cards, found %#v", i)
+		}
+		m[i] = true
+	}
+
+	// Table
+	for _, i := range s.Table {
+		if m[i] {
+			return fmt.Errorf("Deck has repeated cards, found %#v", i)
+		}
+		m[i] = true
+	}
+
+	// Players
+	for _, p := range s.Players {
+		for _, c := range p.Hand {
+		  if m[c] {
+			return fmt.Errorf("Deck has repeated cards, found %#v", c)
+		  }
+		  m[c] = true
+		}
+		for _, c := range p.Grabbed {
+		  if m[c] {
+			return fmt.Errorf("Deck has repeated cards, found %#v", c)
+		  }
+		  m[c] = true
+		}
+	}
+
 	// Check that player values make sense
 	maxPlayers := len(s.Players)
 	for _, p := range s.Players {
@@ -268,7 +302,7 @@ func Primera(p1, p2 *Player) {
 	}
 }
 
-func (s *State) EndTurn() {
+func (s *State) EndTurn() error {
 	// Move the turn to the next player.
 	s.NextPlayer += 1
 	if s.NextPlayer > len(s.Players) {
@@ -290,7 +324,7 @@ func (s *State) EndTurn() {
 		MostDenari(&s.Players[0], &s.Players[1])
 		SetteBello(&s.Players[0], &s.Players[1])
 		Primera(&s.Players[0], &s.Players[1])
-		return
+		return s.Check()
 	}
 
 	if s.EmptyHands() {
@@ -300,6 +334,7 @@ func (s *State) EndTurn() {
 		s.Deck = s.Deck[6:]
 	}
 
+	return s.Check()
 }
 
 func (s *State) Take(card Card, table []Card) error {
@@ -357,8 +392,7 @@ func (s *State) Take(card Card, table []Card) error {
 
 	s.LastPlayerToTake = p.Id
 
-	s.EndTurn()
-	return nil
+	return s.EndTurn()
 }
 
 func (s *State) Drop(card Card) error {
@@ -382,6 +416,5 @@ func (s *State) Drop(card Card) error {
 	// Add the card to the table
 	s.Table = append(s.Table, card)
 
-	s.EndTurn()
-	return nil
+	return s.EndTurn()
 }

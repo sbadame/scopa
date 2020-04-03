@@ -86,6 +86,7 @@ func main() {
 	state := scopa.NewGame()
 	gameId := time.Now().Unix()
 	clients := make([]chan struct{}, 0)
+	logs := make([]string, 0)
 
 	// Serve resources for testing.
 	http.Handle("/", http.FileServer(http.Dir("./web")))
@@ -96,6 +97,15 @@ func main() {
 		playerCount = 0
 		gameId = time.Now().Unix()
 		clients = make([]chan struct{}, 0)
+		logs = make([]string, 0)
+	})
+
+	// Get Debug logs to repro
+	http.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) {
+		for _, s := range logs {
+			io.WriteString(w, s)
+			io.WriteString(w, "\n")
+		}
 	})
 
 	http.Handle("/join", websocket.Handler(func(ws *websocket.Conn) {
@@ -121,8 +131,10 @@ func main() {
 			}
 			if j, err := json.Marshal(u); err != nil {
 				io.WriteString(ws, fmt.Sprintf("{\"Type\": \"ERROR\", \"Message\": \"%v\"}", err))
+				return;
 			} else {
 				ws.Write(j)
+				logs = append(logs, fmt.Sprintf("state: %#v\n", state))
 			}
 			<-update
 		}
@@ -144,6 +156,8 @@ func main() {
 			w.WriteHeader(500)
 			io.WriteString(w, fmt.Sprintf("Couldn't drop: %v", err))
 		}
+
+		logs = append(logs, fmt.Sprintf("drop: %#v\n", d.Card))
 
 		// Update all of the clients, that there is some new state.
 		for _, u := range clients {
@@ -167,7 +181,10 @@ func main() {
 		if err := state.Take(t.Card, t.Table); err != nil {
 			w.WriteHeader(500)
 			io.WriteString(w, fmt.Sprintf("Couldn't take: %v", err))
+			return
 		}
+
+		logs = append(logs, fmt.Sprintf("take: %#v, %#v\n", t.Card, t.Table))
 
 		// Update all of the clients, that there is some new state.
 		for _, u := range clients {
