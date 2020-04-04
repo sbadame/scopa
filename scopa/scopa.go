@@ -53,10 +53,13 @@ type State struct {
 func NewDeck() []Card {
 
 	// Construct a full deck of cards.
-	var d []Card
+	d := make([]Card, 40)
+
+	i := 0
 	for s := 1; s <= 4; s++ {
 		for v := 1; v <= 10; v++ {
-			d = append(d, Card{Suite(s), v})
+			d[i] = Card{Suite(s), v}
+			i += 1
 		}
 	}
 	return d
@@ -69,33 +72,25 @@ func Shuffle(cards []Card) {
 }
 
 func NewGame() State {
-	deck := NewDeck()
-
-	Shuffle(deck)
-
-	// This is not the standard dealing order...
-	// Oh well...
-	// Players first
-	p1 := Player{
-		Id:   1,
-		Hand: deck[:3],
-	}
-	p2 := Player{
-		Id:   2,
-		Hand: deck[3:6],
-	}
-	deck = deck[6:]
-
-	// Then the table
-	table := deck[:4]
-	deck = deck[4:]
-
-	return State{
+	// Create the game state with no cards
+	s := State{
 		NextPlayer: 1,
-		Table:      table,
-		Players:    []Player{p1, p2},
-		Deck:       deck,
+		Players:    []Player{Player{Id: 1}, Player{Id: 2}},
 	}
+	p1, p2 := &s.Players[0], &s.Players[1]
+
+	// Now lets deal out the cards
+	cards := NewDeck()
+	Shuffle(cards)
+
+	// This is not the standard dealing order...  Oh well...
+	// 3 cards to each player, 4 on the table, rest go into the Game's deck.
+	p1.Hand = append(p1.Hand, cards[:3]...)
+	p2.Hand = append(p2.Hand, cards[3:6]...)
+	s.Table = append(s.Table, cards[6:10]...)
+	s.Deck = append(s.Deck, cards[10:]...)
+
+	return s
 }
 
 func (s *State) Check() error {
@@ -116,7 +111,7 @@ func (s *State) Check() error {
 	// Deck
 	for _, i := range s.Deck {
 		if m[i] {
-			return fmt.Errorf("Deck has repeated cards, found %#v", i)
+			return fmt.Errorf("Deck has repeated cards, found %#v, \n%#v", i, s)
 		}
 		m[i] = true
 	}
@@ -124,7 +119,7 @@ func (s *State) Check() error {
 	// Table
 	for _, i := range s.Table {
 		if m[i] {
-			return fmt.Errorf("Deck has repeated cards, found %#v", i)
+			return fmt.Errorf("Deck has repeated cards, found %#v, \n%#v", i, s)
 		}
 		m[i] = true
 	}
@@ -132,16 +127,16 @@ func (s *State) Check() error {
 	// Players
 	for _, p := range s.Players {
 		for _, c := range p.Hand {
-		  if m[c] {
-			return fmt.Errorf("Deck has repeated cards, found %#v", c)
-		  }
-		  m[c] = true
+			if m[c] {
+				return fmt.Errorf("Deck has repeated cards, found %#v, \n%#v", c, s)
+			}
+			m[c] = true
 		}
 		for _, c := range p.Grabbed {
-		  if m[c] {
-			return fmt.Errorf("Deck has repeated cards, found %#v", c)
-		  }
-		  m[c] = true
+			if m[c] {
+				return fmt.Errorf("Deck has repeated cards, found %#v, \n%#v", c, s)
+			}
+			m[c] = true
 		}
 	}
 
@@ -303,6 +298,12 @@ func Primera(p1, p2 *Player) {
 }
 
 func (s *State) EndTurn() error {
+	// Check the state before switching to the next player...
+	if err := s.Check(); err != nil {
+		fmt.Printf("---- FAIL --- \n%#v\n", s)
+		return err
+	}
+
 	// Move the turn to the next player.
 	s.NextPlayer += 1
 	if s.NextPlayer > len(s.Players) {
@@ -324,7 +325,7 @@ func (s *State) EndTurn() error {
 		MostDenari(&s.Players[0], &s.Players[1])
 		SetteBello(&s.Players[0], &s.Players[1])
 		Primera(&s.Players[0], &s.Players[1])
-		return s.Check()
+		return nil
 	}
 
 	if s.EmptyHands() {
@@ -334,7 +335,7 @@ func (s *State) EndTurn() error {
 		s.Deck = s.Deck[6:]
 	}
 
-	return s.Check()
+	return nil
 }
 
 func (s *State) Take(card Card, table []Card) error {
@@ -396,6 +397,8 @@ func (s *State) Take(card Card, table []Card) error {
 }
 
 func (s *State) Drop(card Card) error {
+
+	fmt.Printf("---- DROP --- \n%#v\n", s)
 
 	// Validating inputs...
 	if err := s.CheckCurrentPlayerHasCard(card); err != nil {

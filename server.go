@@ -84,6 +84,7 @@ func main() {
 	}
 
 	state := scopa.NewGame()
+	var stateMux sync.Mutex
 	gameId := time.Now().Unix()
 	clients := make([]chan struct{}, 0)
 	logs := make([]string, 0)
@@ -102,6 +103,8 @@ func main() {
 
 	// Get Debug logs to repro
 	http.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) {
+		stateMux.Lock()
+		defer stateMux.Unlock()
 		for _, s := range logs {
 			io.WriteString(w, s)
 			io.WriteString(w, "\n")
@@ -131,16 +134,18 @@ func main() {
 			}
 			if j, err := json.Marshal(u); err != nil {
 				io.WriteString(ws, fmt.Sprintf("{\"Type\": \"ERROR\", \"Message\": \"%v\"}", err))
-				return;
+				return
 			} else {
 				ws.Write(j)
-				logs = append(logs, fmt.Sprintf("state: %#v\n", state))
 			}
 			<-update
 		}
 	}))
 
 	http.HandleFunc("/drop", func(w http.ResponseWriter, r *http.Request) {
+		stateMux.Lock()
+		defer stateMux.Unlock()
+
 		var d drop
 		if !parseRequestJson(w, r, &d) {
 			return
@@ -152,11 +157,13 @@ func main() {
 			return
 		}
 
+		logs = append(logs, fmt.Sprintf("state: %#v\n", state))
 		if err := state.Drop(d.Card); err != nil {
 			w.WriteHeader(500)
 			io.WriteString(w, fmt.Sprintf("Couldn't drop: %v", err))
+			logs = append(logs, fmt.Sprintf("FAIL drop: %#v\n", d.Card))
+			return
 		}
-
 		logs = append(logs, fmt.Sprintf("drop: %#v\n", d.Card))
 
 		// Update all of the clients, that there is some new state.
@@ -167,6 +174,9 @@ func main() {
 	})
 
 	http.HandleFunc("/take", func(w http.ResponseWriter, r *http.Request) {
+		stateMux.Lock()
+		defer stateMux.Unlock()
+
 		var t take
 		if !parseRequestJson(w, r, &t) {
 			return
@@ -178,9 +188,11 @@ func main() {
 			return
 		}
 
+		logs = append(logs, fmt.Sprintf("state: %#v\n", state))
 		if err := state.Take(t.Card, t.Table); err != nil {
 			w.WriteHeader(500)
 			io.WriteString(w, fmt.Sprintf("Couldn't take: %v", err))
+			logs = append(logs, fmt.Sprintf("FAIL take: %#v, %#v\n", t.Card, t.Table))
 			return
 		}
 
