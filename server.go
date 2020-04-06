@@ -81,7 +81,6 @@ var playerCount int
 var playerMux sync.Mutex
 
 func allocatePlayerId() (int, error) {
-	fmt.Printf("Player %d\n", playerCount)
 	playerMux.Lock()
 	defer playerMux.Unlock()
 
@@ -128,7 +127,6 @@ func main() {
 	})
 
 	http.Handle("/join", websocket.Handler(func(ws *websocket.Conn) {
-		fmt.Println("/join")
 		if playerId, err := allocatePlayerId(); err != nil {
 			ws.Close()
 			return
