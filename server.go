@@ -127,22 +127,22 @@ func main() {
 	})
 
 	http.Handle("/join", websocket.Handler(func(ws *websocket.Conn) {
-        var err error
-        playerId := 0
+		var err error
+		playerId := 0
 
-        p := ws.Request().FormValue("PlayerId")
-        g := ws.Request().FormValue("GameId")
-        if p == "" || g == "" || g != strconv.FormatInt(gameId, 10) {
-            if playerId, err = allocatePlayerId(); err != nil {
-                ws.Close()
-                return
-            }
-        } else {
-            if playerId, err = strconv.Atoi(p); err != nil {
-                ws.Close()
-                return
-            }
-        }
+		p := ws.Request().FormValue("PlayerId")
+		g := ws.Request().FormValue("GameId")
+		if p == "" || g == "" || g != strconv.FormatInt(gameId, 10) {
+			if playerId, err = allocatePlayerId(); err != nil {
+				ws.Close()
+				return
+			}
+		} else {
+			if playerId, err = strconv.Atoi(p); err != nil {
+				ws.Close()
+				return
+			}
+		}
 		io.WriteString(ws, fmt.Sprintf("{\"Type\": \"INIT\", \"PlayerId\": %d, \"GameId\": %d}", playerId, gameId))
 
 		// "Register" a channel to listen to changes to.
@@ -155,7 +155,7 @@ func main() {
 			s := update{
 				Type:  "STATE",
 				State: state,
-            }
+			}
 			if err := websocket.JSON.Send(ws, s); err != nil {
 				io.WriteString(ws, fmt.Sprintf("{\"Type\": \"ERROR\", \"Message\": \"state json send error: %#v\"}", err))
 				return
