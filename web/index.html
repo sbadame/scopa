@@ -31,7 +31,7 @@
 	<script>
 		'use strict';
                 // The playerId once we know it.
-		var playerId = null;
+                var playerId = null;
 
                 // The latest state update.
                 var globalState = null;
@@ -194,18 +194,25 @@
                   }
                 }
 
-		// Get the state of the game
+                // If 
 
-                // Get the local name, but make the protocol ws:// or wss:// as needed.
+                // Get the url for the page, but make the protocol ws:// or wss:// as needed.
                 const wsUrl = new URL('/join', document.location.href); // Works for localhost, ip, and domain.
                 wsUrl.protocol = wsUrl.protocol.replace('http', 'ws'); // Also works for https -> wss
+                
+                // Pass in any known state.
+                wsUrl.searchParams.append('PlayerId', window.localStorage.getItem('PlayerId'));
+                wsUrl.searchParams.append('GameId', window.localStorage.getItem('GameId'));
 
+                // Get streaming updates for game's states.
                 const ws = new WebSocket(wsUrl);
                 ws.addEventListener('message', (e) => {
                   let data = JSON.parse(e.data);
                   switch(data.Type) {
                     case "INIT":
                       playerId = data.PlayerId;
+                      window.localStorage.setItem('PlayerId', data.PlayerId);
+                      window.localStorage.setItem('GameId', data.GameId);
                       break;
                     case "MOVE":
                       updateLatestMove(data);
