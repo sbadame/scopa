@@ -42,6 +42,9 @@
                 // Contains the card values that the player has selected from their hand.
                 var globalPlayerSelected = null;
 
+                // Contains the latest move
+                var globalLatestMove = "";
+
                 function renderCard(suite, value) {
                   const card = document.createElement('div');
                   card.className = 'cards';
@@ -84,10 +87,17 @@
 			}
 			game.appendChild(turn);
 
+                        // What happened last?
+                        if (globalLatestMove !== "") {
+                          const latestMove = document.createElement('div');
+                          latestMove.innerText = globalLatestMove;
+                          game.appendChild(latestMove);
+                        }
+
+			// What's on the table?
                         const tableDiv = document.createElement('div');
                         tableDiv.id = 'table';
 
-			// What's on the table?
 			for (let t of state.Table) {
                                 let c = renderCard(t.Suite, t.Value);
                                 c.addEventListener('click', (e) => {
@@ -142,6 +152,48 @@
                         }
 		}
 
+                function updateLatestMove(move) {
+
+                  function name(card) {
+                    if (card.Suite === 1 && card.Value == 7) {
+                      return 'Settebello';
+                    }
+                    const {Suite, Value} = card;
+                    const suites = {
+                      1: 'Denari',
+                      2: 'Coppe',
+                      3: 'Bastoni',
+                      4: 'Spade'
+                    };
+                    const values = {
+                      1: '1',
+                      2: '2',
+                      3: '3',
+                      4: '4',
+                      5: '5',
+                      6: '6',
+                      7: '7',
+                      8: 'Fante',
+                      9: 'Cavallo',
+                      10: 'Re'
+
+                    };
+                    return `${values[Value]} di ${suites[Suite]}`;
+                  }
+
+                  function names(cards) {
+                    return cards.map(name).join(',');
+                  }
+
+                  if (move.Drop) {
+                    const {PlayerId, Card} = move.Drop;
+                    globalLatestMove = `Player ${PlayerId} dropped the ${name(Card)}`;
+                  } else if (move.Take) {
+                    const {PlayerId, Card, Table} = move.Take;
+                    globalLatestMove = `Player ${PlayerId} took the ${names(Table)} with their ${name(Card)}`
+                  }
+                }
+
 		// Get the state of the game
                 const ws = new WebSocket("ws://localhost:8080/join");
                 ws.addEventListener('message', (e) => {
@@ -149,6 +201,9 @@
                   switch(data.Type) {
                     case "INIT":
                       playerId = data.PlayerId;
+                      break;
+                    case "MOVE":
+                      updateLatestMove(data);
                       break;
                     case "STATE":
                       renderState(data.State);
