@@ -26,15 +26,30 @@ var (
 // $ curl -v localhost:8080/take -H "Content-Type: application/json" --data '{"PlayerId": 1, "Card": {"Suite":4, "Value":2}, "Table": [{"Suite": 1, "Value": 2}]}'
 // $ curl -v localhost:8080/drop -H "Content-Type: application/json" --data '{"Card": {"Suite":4, "Value":2}}'
 
+// /drop request content body json is marsheled into this struct.
 type drop struct {
 	PlayerId int
 	Card     scopa.Card
 }
 
+// /take request content body json is marsheled into this struct.
 type take struct {
 	PlayerId int
 	Card     scopa.Card
 	Table    []scopa.Card
+}
+
+// Represents the move (drop or take) that was mde
+type move struct {
+	Type string
+	Drop *drop
+	Take *take
+}
+
+// /join streams updates with JSON marshalled from this type to clients.
+type update struct {
+	Type  string
+	State scopa.State
 }
 
 func parseRequestJson(w http.ResponseWriter, r *http.Request, v interface{}) bool {
@@ -66,6 +81,7 @@ var playerCount int
 var playerMux sync.Mutex
 
 func allocatePlayerId() (int, error) {
+	fmt.Printf("Player %d\n", playerCount)
 	playerMux.Lock()
 	defer playerMux.Unlock()
 
@@ -86,7 +102,7 @@ func main() {
 	state := scopa.NewGame()
 	var stateMux sync.Mutex
 	gameId := time.Now().Unix()
-	clients := make([]chan struct{}, 0)
+	clients := make([]chan move, 0)
 	logs := make([]string, 0)
 
 	// Serve resources for testing.
@@ -97,7 +113,7 @@ func main() {
 		state = scopa.NewGame()
 		playerCount = 0
 		gameId = time.Now().Unix()
-		clients = make([]chan struct{}, 0)
+		clients = make([]chan move, 0)
 		logs = make([]string, 0)
 	})
 
@@ -112,6 +128,7 @@ func main() {
 	})
 
 	http.Handle("/join", websocket.Handler(func(ws *websocket.Conn) {
+		fmt.Println("/join")
 		if playerId, err := allocatePlayerId(); err != nil {
 			ws.Close()
 			return
@@ -120,25 +137,33 @@ func main() {
 		}
 
 		// "Register" a channel to listen to changes to.
-		update := make(chan struct{}, 1000)
-		clients = append(clients, update)
+		updateChan := make(chan move, 1000)
+		clients = append(clients, updateChan)
 
-		// Push the initial state, then keep pushing a state
+		// Push the initial state, then keep pushing a state + moves
 		for {
-			u := struct {
-				Type  string
-				State scopa.State
-			}{
+			// Push the game state
+			s := update{
 				Type:  "STATE",
 				State: state,
 			}
-			if j, err := json.Marshal(u); err != nil {
-				io.WriteString(ws, fmt.Sprintf("{\"Type\": \"ERROR\", \"Message\": \"%v\"}", err))
+			if j, err := json.Marshal(s); err != nil {
+				io.WriteString(ws, fmt.Sprintf("{\"Type\": \"ERROR\", \"Message\": \"state json error: %v\"}", err))
 				return
 			} else {
 				ws.Write(j)
 			}
-			<-update
+
+			// Push the move
+			m := <-updateChan
+			m.Type = "MOVE"
+			if j, err := json.Marshal(m); err != nil {
+				io.WriteString(ws, fmt.Sprintf("{\"Type\": \"ERROR\", \"Message\": \"move json error: %v\"}", err))
+				return
+			} else {
+				ws.Write(j)
+			}
+
 		}
 	}))
 
@@ -168,8 +193,7 @@ func main() {
 
 		// Update all of the clients, that there is some new state.
 		for _, u := range clients {
-			var s struct{}
-			u <- s
+			u <- move{Drop: &d}
 		}
 	})
 
@@ -200,8 +224,7 @@ func main() {
 
 		// Update all of the clients, that there is some new state.
 		for _, u := range clients {
-			var s struct{}
-			u <- s
+			u <- move{Take: &t}
 		}
 	})
 
