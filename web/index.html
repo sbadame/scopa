@@ -195,7 +195,12 @@
                 }
 
 		// Get the state of the game
-                const ws = new WebSocket("ws://localhost:8080/join");
+
+                // Get the local name, but make the protocol ws:// or wss:// as needed.
+                const wsUrl = new URL('/join', document.location.href); // Works for localhost, ip, and domain.
+                wsUrl.protocol = wsUrl.protocol.replace('http', 'ws'); // Also works for https -> wss
+
+                const ws = new WebSocket(wsUrl);
                 ws.addEventListener('message', (e) => {
                   let data = JSON.parse(e.data);
                   switch(data.Type) {
