@@ -6,231 +6,273 @@
   <!-- This is a responsive site, don't make browsers lie about their size... -->
   <meta charset="utf-8" name="viewport" content="width=device-width,initial-scale=1">
   <style>
-      #game {
-        background-color: antiquewhite;
-        transition: background-color 2s ease;
-      }
+    #body {
+      margin: 0px;
+    }
 
-      #game.activeTurn {
-        background-color: darkseagreen
-      }
+    #game {
+      background-color: antiquewhite;
+      transition: background-color 2s ease;
+      padding: 8px;
+    }
 
-     .cards {
-	background: url(cards.jpg);
-	background-size: 1000px;
-	display: inline-block;
-	height: 170px;
-	width: 100px;
-     }
+    #game.activeTurn {
+      background-color: darkseagreen
+    }
+
+    #turnIndicator {
+      text-align: center;
+      padding-bottom: 20px;
+      font-size: 1.5em;
+      font-variant: all-small-caps;
+    }
+
+    #lastMove {
+      font-style: italic;
+      padding-bottom: 20px;
+      min-height: 20px;
+    }
+
+    .cards {
+      background: url(cards.jpg);
+      background-size: 1000px;
+      display: inline-block;
+      position: relative;
+      height: 166px;
+      width: 95px;
+
+      margin: 3px;
+      border: solid black;
+      border-radius: 7px;
+      border-width: 3px;
+      box-shadow: 3px 3px 7px rgba(0,0,0,0.3);
+    }
 
      .selected {
-       border: solid red 2px;
+       border: solid red 3px;
      }
 
      #table {
        height: 200px;
+       display: flex;
+       justify-content: center;
      }
 
      #hand {
        height: 200px;
+       transform-origin: center 30px;
+       display: flex;
+       justify-content: center;
+     }
+
+     #hand .cards {
+       transform-origin: inherit;
      }
   </style>
 </head>
 <body>
 	<script>
 		'use strict';
-                // The playerId once we know it.
-                var playerId = null;
+    // The playerId once we know it.
+    var playerId = null;
 
-                // The latest state update.
-                var globalState = null;
+    // The latest state update.
+    var globalState = null;
 
-                // Contains the list of card values that the player has selected from the table.
-                var globalTableSelected = [];
+    // Contains the list of card values that the player has selected from the table.
+    var globalTableSelected = [];
 
-                // Contains the card values that the player has selected from their hand.
-                var globalPlayerSelected = null;
+    // Contains the card values that the player has selected from their hand.
+    var globalPlayerSelected = null;
 
-                // Contains the latest move
-                var globalLatestMove = "";
+    // Contains the latest move
+    var globalLatestMove = "";
 
-                function renderCard(suite, value) {
-                  const card = document.createElement('div');
-                  card.className = 'cards';
-                  card.style.backgroundPositionX = `-${(value - 1) * 100}px`;
-                  card.style.backgroundPositionY = `-${(suite - 1) * 170}px`;
-                  card.dataset.value = value;
-                  card.dataset.suite = suite;
-                  card.addEventListener('click', (e) => {
-                    e.target.classList.toggle('selected');
-                  });
-                  return card;
-                }
+    function renderCard(suite, value) {
+      const card = document.createElement('div');
+      card.className = 'cards';
+      card.style.backgroundPositionX = `-${(value - 1) * 100}px`;
+      card.style.backgroundPositionY = `-${(suite - 1) * 170}px`;
+      card.dataset.value = value;
+      card.dataset.suite = suite;
+      card.addEventListener('click', (e) => {
+        e.target.classList.toggle('selected');
+      });
+      return card;
+    }
 
 		function renderState(state) {
-                        // TODO: Migrate this to use a <template> html element, to make this easier to read...
+      // TODO: Migrate this to use a <template> html element, to make this easier to read...
 
-                        // Makes debugging easy..
-                        globalState = state;
+      // Makes debugging easy..
+      globalState = state;
 
-                        // Clear out the current selections...
-                        globalTableSelected = [];
-                        globalPlayerSelected = [];
+      // Clear out the current selections...
+      globalTableSelected = [];
+      globalPlayerSelected = [];
 
-                        // Remove the current display if it.
-			            let game = document.querySelector('#game');
-                        game.innerHTML = '';
-                        game.classList.forEach((c) => game.classList.remove(c));
+      // Remove the current display if it.
+      let game = document.querySelector('#game');
+      game.innerHTML = '';
+      game.classList.forEach((c) => game.classList.remove(c));
 
-                        // What's this player's ID? (1 or 2?)
-                        const player = document.createElement('div');
-                        player.innerText = playerId
-                        player.classList.add('player');
-                        game.appendChild(player);
+      // What happened last?
+      const lastMoveDiv = document.createElement('div');
+      lastMoveDiv.innerText = lastMove(state.LastMove) || " ";
+      lastMoveDiv.id = "lastMove";
+      game.appendChild(lastMoveDiv);
 
 			// Who's turn?
 			const turn = document.createElement('div');
+      turn.id = 'turnIndicator';
 			if (playerId === state.NextPlayer) {
 				turn.innerHTML = "Your turn";
-                game.classList.add('activeTurn');
+        game.classList.add('activeTurn');
 			} else {
 				turn.innerHTML = "Waiting for the other player.";
 			}
 			game.appendChild(turn);
 
-                        // What happened last?
-                        const lastMoveDiv = document.createElement('div');
-                        lastMoveDiv.innerText = lastMove(state.LastMove);
-                        game.appendChild(lastMoveDiv);
-
 			// What's on the table?
-                        const tableDiv = document.createElement('div');
-                        tableDiv.id = 'table';
+      const tableDiv = document.createElement('div');
+      tableDiv.id = 'table';
 
 			for (let t of state.Table) {
-                                let c = renderCard(t.Suite, t.Value);
-                                c.addEventListener('click', (e) => {
-                                  let i = globalTableSelected.indexOf(t);
-                                  if (i == -1) {
-                                    globalTableSelected.push(t);
-                                  } else {
-                                    globalTableSelected.splice(i, 1);
-                                  }
-                                });
+        let c = renderCard(t.Suite, t.Value);
+        c.addEventListener('click', (e) => {
+          let i = globalTableSelected.indexOf(t);
+          if (i == -1) {
+            globalTableSelected.push(t);
+          } else {
+            globalTableSelected.splice(i, 1);
+          }
+        });
 				tableDiv.appendChild(c);
 			}
-                        game.appendChild(tableDiv);
+      game.appendChild(tableDiv);
 
-                        // What's in player's hand?
-                        const hand = document.createElement('div');
-                        hand.id = 'hand';
-                        for (let t of state.Players[playerId - 1].Hand) {
-                                let c = renderCard(t.Suite, t.Value);
-                                c.addEventListener('click', (e) => {
-                                  globalPlayerSelected = t;
-                                });
-				hand.appendChild(c);
-                        }
-			game.appendChild(hand);
+      // What's in player's hand?
+      const hand = document.createElement('div');
+      hand.id = 'hand';
+      let i = 0;
+      for (let t of state.Players[playerId - 1].Hand) {
+        let c = renderCard(t.Suite, t.Value);
+        c.style.transform = `rotate(${(i*20)-20}deg)`;
+        if (i === 1) {
+          c.style.zIndex = 1;
+        }
+        c.addEventListener('click', (e) => {
+          globalPlayerSelected = t;
+        });
+        hand.appendChild(c);
+        i++;
+      }
+      game.appendChild(hand);
 
-                        // Give the player options...
-                        const takeButton = document.createElement('button');
-                        takeButton.innerText = "Take";
-                        takeButton.addEventListener('click', (e) => {
-                          take();
-                        });
-                        game.appendChild(takeButton);
+      // Give the player options...
+      const takeButton = document.createElement('button');
+      takeButton.innerText = "Take";
+      takeButton.addEventListener('click', (e) => {
+        take();
+      });
+      game.appendChild(takeButton);
 
-                        const dropButton = document.createElement('button');
-                        dropButton.innerText = "Drop";
-                        dropButton.addEventListener('click', (e) => {
-                          drop();
-                        });
-                        game.appendChild(dropButton);
+      const dropButton = document.createElement('button');
+      dropButton.innerText = "Drop";
+      dropButton.addEventListener('click', (e) => {
+        drop();
+      });
+      game.appendChild(dropButton);
 
-                        // Check if there are awards to grant!
-                        const awardsTitle = document.createElement('div');
-                        awardsTitle.id = "awardsTitle";
-                        awardsTitle.innerText = "Awards";
-                        game.appendChild(awardsTitle);
-                        for (let p of state.Players) {
-                          const award = document.createElement('div');
-                          award.classList.add('award');
-                          award.innerText = `Player ${p.Id}: Scopas: ${p.Scopas}, Awards: ${p.Awards ? p.Awards.join() : ''}`;
-                          game.appendChild(award);
-                        }
+      // Check if there are awards to grant!
+      const awardsTitle = document.createElement('div');
+      awardsTitle.id = "awardsTitle";
+      awardsTitle.innerText = "Awards";
+      game.appendChild(awardsTitle);
+      for (let p of state.Players) {
+        const award = document.createElement('div');
+        award.classList.add('award');
+        award.innerText = `Player ${p.Id}: Scopas: ${p.Scopas}, Awards: ${p.Awards ? p.Awards.join() : ''}`;
+        game.appendChild(award);
+      }
+
+      // What's this player's ID? (1 or 2?)
+      const player = document.createElement('div');
+      player.innerText = playerId
+      player.classList.add('player');
+      game.appendChild(player);
 		}
 
-                function lastMove(move) {
+    function lastMove(move) {
 
-                  function name(card) {
-                    if (card.Suite === 1 && card.Value == 7) {
-                      return 'Settebello';
-                    }
-                    const {Suite, Value} = card;
-                    const suites = {
-                      1: 'Denari',
-                      2: 'Coppe',
-                      3: 'Bastoni',
-                      4: 'Spade'
-                    };
-                    const values = {
-                      1: '1',
-                      2: '2',
-                      3: '3',
-                      4: '4',
-                      5: '5',
-                      6: '6',
-                      7: '7',
-                      8: 'Fante',
-                      9: 'Cavallo',
-                      10: 'Re'
+      function name(card) {
+        if (card.Suite === 1 && card.Value == 7) {
+          return 'Settebello';
+        }
+        const {Suite, Value} = card;
+        const suites = {
+          1: 'Denari',
+          2: 'Coppe',
+          3: 'Bastoni',
+          4: 'Spade'
+        };
+        const values = {
+          1: '1',
+          2: '2',
+          3: '3',
+          4: '4',
+          5: '5',
+          6: '6',
+          7: '7',
+          8: 'Fante',
+          9: 'Cavallo',
+          10: 'Re'
 
-                    };
-                    return `${values[Value]} di ${suites[Suite]}`;
-                  }
+        };
+        return `${values[Value]} di ${suites[Suite]}`;
+      }
 
-                  function names(cards) {
-                    return cards.map(name).join(',');
-                  }
+      function names(cards) {
+        return cards.map(name).join(', ');
+      }
 
-                  if (move.Drop) {
-                    const {PlayerId, Card} = move.Drop;
-                    return `Player ${PlayerId} dropped the ${name(Card)}`;
-                  } else if (move.Take) {
-                    const {PlayerId, Card, Table} = move.Take;
-                    return `Player ${PlayerId} took the ${names(Table)} with their ${name(Card)}`
-                  }
-                  return "";
-                }
+      if (move.Drop) {
+        const {PlayerId, Card} = move.Drop;
+        return `Player ${PlayerId} dropped the ${name(Card)}`;
+      } else if (move.Take) {
+        const {PlayerId, Card, Table} = move.Take;
+        return `Player ${PlayerId} took the ${names(Table)} with their ${name(Card)}`
+      }
+      return "";
+    }
 
-                // If 
+    // If 
 
-                // Get the url for the page, but make the protocol ws:// or wss:// as needed.
-                const wsUrl = new URL('/join', document.location.href); // Works for localhost, ip, and domain.
-                wsUrl.protocol = wsUrl.protocol.replace('http', 'ws'); // Also works for https -> wss
-                
-                // Pass in any known state.
-                wsUrl.searchParams.append('PlayerId', window.localStorage.getItem('PlayerId'));
-                wsUrl.searchParams.append('GameId', window.localStorage.getItem('GameId'));
+    // Get the url for the page, but make the protocol ws:// or wss:// as needed.
+    const wsUrl = new URL('/join', document.location.href); // Works for localhost, ip, and domain.
+    wsUrl.protocol = wsUrl.protocol.replace('http', 'ws'); // Also works for https -> wss
+    
+    // Pass in any known state.
+    wsUrl.searchParams.append('PlayerId', window.localStorage.getItem('PlayerId'));
+    wsUrl.searchParams.append('GameId', window.localStorage.getItem('GameId'));
 
-                // Get streaming updates for game's states.
-                const ws = new WebSocket(wsUrl);
-                ws.addEventListener('message', (e) => {
-                  let data = JSON.parse(e.data);
-                  switch(data.Type) {
-                    case "INIT":
-                      playerId = data.PlayerId;
-                      window.localStorage.setItem('PlayerId', data.PlayerId);
-                      window.localStorage.setItem('GameId', data.GameId);
-                      break;
-                    case "STATE":
-                      renderState(data.State);
-                      break;
-                    default:
-                      console.log("Can't handle", data);
-                  }
-                });
+    // Get streaming updates for game's states.
+    const ws = new WebSocket(wsUrl);
+    ws.addEventListener('message', (e) => {
+      let data = JSON.parse(e.data);
+      switch(data.Type) {
+        case "INIT":
+          playerId = data.PlayerId;
+          window.localStorage.setItem('PlayerId', data.PlayerId);
+          window.localStorage.setItem('GameId', data.GameId);
+          break;
+        case "STATE":
+          renderState(data.State);
+          break;
+        default:
+          console.log("Can't handle", data);
+      }
+    });
 
 		// From: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
 		async function post(url, data) {
