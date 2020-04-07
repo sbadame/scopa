@@ -6,6 +6,15 @@
   <!-- This is a responsive site, don't make browsers lie about their size... -->
   <meta charset="utf-8" name="viewport" content="width=device-width,initial-scale=1">
   <style>
+      #game {
+        background-color: antiquewhite;
+        transition: background-color 2s ease;
+      }
+
+      #game.activeTurn {
+        background-color: darkseagreen
+      }
+
      .cards {
 	background: url(cards.jpg);
 	background-size: 1000px;
@@ -68,9 +77,10 @@
                         globalTableSelected = [];
                         globalPlayerSelected = [];
 
-                        // Build the DOM.
-			const game = document.querySelector('#game');
-			game.innerHTML = '';
+                        // Remove the current display if it.
+			            let game = document.querySelector('#game');
+                        game.innerHTML = '';
+                        game.classList.forEach((c) => game.classList.remove(c));
 
                         // What's this player's ID? (1 or 2?)
                         const player = document.createElement('div');
@@ -82,6 +92,7 @@
 			const turn = document.createElement('div');
 			if (playerId === state.NextPlayer) {
 				turn.innerHTML = "Your turn";
+                game.classList.add('activeTurn');
 			} else {
 				turn.innerHTML = "Waiting for the other player.";
 			}
