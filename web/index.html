@@ -261,7 +261,13 @@
                     alert(result.Message);
                   }
                 }
+
+                async function newGame() {
+                    await post("/reset");
+                    location.reload();
+                }
 	</script>
 	<div id="game"></div>
+    <button onclick="newGame()">New Game</button>
 </body>
 </html>
