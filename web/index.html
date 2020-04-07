@@ -88,11 +88,9 @@
 			game.appendChild(turn);
 
                         // What happened last?
-                        if (globalLatestMove !== "") {
-                          const latestMove = document.createElement('div');
-                          latestMove.innerText = globalLatestMove;
-                          game.appendChild(latestMove);
-                        }
+                        const lastMoveDiv = document.createElement('div');
+                        lastMoveDiv.innerText = lastMove(state.LastMove);
+                        game.appendChild(lastMoveDiv);
 
 			// What's on the table?
                         const tableDiv = document.createElement('div');
@@ -152,7 +150,7 @@
                         }
 		}
 
-                function updateLatestMove(move) {
+                function lastMove(move) {
 
                   function name(card) {
                     if (card.Suite === 1 && card.Value == 7) {
@@ -187,11 +185,12 @@
 
                   if (move.Drop) {
                     const {PlayerId, Card} = move.Drop;
-                    globalLatestMove = `Player ${PlayerId} dropped the ${name(Card)}`;
+                    return `Player ${PlayerId} dropped the ${name(Card)}`;
                   } else if (move.Take) {
                     const {PlayerId, Card, Table} = move.Take;
-                    globalLatestMove = `Player ${PlayerId} took the ${names(Table)} with their ${name(Card)}`
+                    return `Player ${PlayerId} took the ${names(Table)} with their ${name(Card)}`
                   }
+                  return "";
                 }
 
                 // If 
@@ -213,9 +212,6 @@
                       playerId = data.PlayerId;
                       window.localStorage.setItem('PlayerId', data.PlayerId);
                       window.localStorage.setItem('GameId', data.GameId);
-                      break;
-                    case "MOVE":
-                      updateLatestMove(data);
                       break;
                     case "STATE":
                       renderState(data.State);

@@ -39,13 +39,6 @@ type take struct {
 	Table    []scopa.Card
 }
 
-// Represents the move (drop or take) that was mde
-type move struct {
-	Type string
-	Drop *drop
-	Take *take
-}
-
 // /join streams updates with JSON marshalled from this type to clients.
 type update struct {
 	Type  string
@@ -101,7 +94,7 @@ func main() {
 	state := scopa.NewGame()
 	var stateMux sync.Mutex
 	gameId := time.Now().Unix()
-	clients := make([]chan move, 0)
+	clients := make([]chan struct{}, 0)
 	logs := make([]string, 0)
 
 	// Serve resources for testing.
@@ -112,7 +105,7 @@ func main() {
 		state = scopa.NewGame()
 		playerCount = 0
 		gameId = time.Now().Unix()
-		clients = make([]chan move, 0)
+		clients = make([]chan struct{}, 0)
 		logs = make([]string, 0)
 	})
 
@@ -146,10 +139,10 @@ func main() {
 		io.WriteString(ws, fmt.Sprintf("{\"Type\": \"INIT\", \"PlayerId\": %d, \"GameId\": %d}", playerId, gameId))
 
 		// "Register" a channel to listen to changes to.
-		updateChan := make(chan move, 1000)
+		updateChan := make(chan struct{}, 1000)
 		clients = append(clients, updateChan)
 
-		// Push the initial state, then keep pushing a state + moves
+		// Push the initial state, then keep pushing the full state with every change.
 		for {
 			// Push the game state
 			s := update{
@@ -161,16 +154,8 @@ func main() {
 				return
 			}
 
-			// Push the move
-			m := <-updateChan
-			m.Type = "MOVE"
-			if j, err := json.Marshal(m); err != nil {
-				io.WriteString(ws, fmt.Sprintf("{\"Type\": \"ERROR\", \"Message\": \"move json error: %v\"}", err))
-				return
-			} else {
-				ws.Write(j)
-			}
-
+			// Wait for an update...
+			<-updateChan
 		}
 	}))
 
@@ -200,7 +185,8 @@ func main() {
 
 		// Update all of the clients, that there is some new state.
 		for _, u := range clients {
-			u <- move{Drop: &d}
+			var s struct{}
+			u <- s
 		}
 	})
 
@@ -231,7 +217,8 @@ func main() {
 
 		// Update all of the clients, that there is some new state.
 		for _, u := range clients {
-			u <- move{Take: &t}
+			var s struct{}
+			u <- s
 		}
 	})
 

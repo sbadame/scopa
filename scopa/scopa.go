@@ -42,12 +42,28 @@ type Player struct {
 	Awards  []string
 }
 
+type drop struct {
+	PlayerId int
+	Card     Card
+}
+
+type take struct {
+	PlayerId int
+	Card     Card
+	Table    []Card
+}
+
+type move struct {
+	Drop *drop
+	Take *take
+}
 type State struct {
 	NextPlayer       int
 	LastPlayerToTake int
 	Deck             []Card
 	Table            []Card
 	Players          []Player
+	LastMove         move
 }
 
 func NewDeck() []Card {
@@ -392,7 +408,7 @@ func (s *State) Take(card Card, table []Card) error {
 	}
 
 	s.LastPlayerToTake = p.Id
-
+	s.LastMove = move{Take: &take{s.NextPlayer, card, table}}
 	return s.EndTurn()
 }
 
@@ -418,6 +434,7 @@ func (s *State) Drop(card Card) error {
 
 	// Add the card to the table
 	s.Table = append(s.Table, card)
+	s.LastMove = move{Drop: &drop{s.NextPlayer, card}}
 
 	return s.EndTurn()
 }
