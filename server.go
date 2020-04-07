@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/sbadame/scopa/scopa"
+	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/websocket"
 	"io"
 	"log"
@@ -16,8 +17,9 @@ import (
 )
 
 var (
-	port   = flag.Int("port", 8080, "The port to listen on for requests.")
-	random = flag.Bool("random", false, "When set to true, actually uses a random seed.")
+	port      = flag.Int("port", 8080, "The port to listen on for requests.")
+	random    = flag.Bool("random", false, "When set to true, actually uses a random seed.")
+	httpsHost = flag.String("https_host", "", "Set this to the hostname to get a Let's Encrypt SSL certifcate for.")
 )
 
 // To test with no random seed:
@@ -222,5 +224,10 @@ func main() {
 		}
 	})
 
-	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*port), nil))
+	if *httpsHost != "" {
+		log.Fatal(http.Serve(autocert.NewListener(*httpsHost), nil))
+	} else {
+		// Don't do any SSL stuff (useful for development)
+		http.ListenAndServe(":"+strconv.Itoa(*port), nil)
+	}
 }
