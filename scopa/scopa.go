@@ -103,11 +103,11 @@ func NewGame() State {
 
 		r := 0
 		for i := 0; i < 4; i++ {
-			if (cards[i].Value == 10) {
+			if cards[i].Value == 10 {
 				r += 1
 			}
 		}
-		if (r <= 2) {
+		if r <= 2 {
 			break
 		}
 	}
