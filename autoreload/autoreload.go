@@ -17,6 +17,10 @@ func restartOnUpdate() {
 		s, _ := os.Readlink("/proc/self/exe")
 		if strings.HasSuffix(s, " (deleted)") {
 			p := s[:len(s)-10]
+			if _, err := os.Stat(p); os.IsNotExist(err) {
+				// Looks like the file just got deleted, or it doesn't exist yet?
+				continue
+			}
 			fmt.Printf("Restarting %s\n", s)
 			if err := syscall.Exec(p, os.Args, os.Environ()); err != nil {
 				fmt.Printf("Autoreload failed! %s: %v", p, err)
