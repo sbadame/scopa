@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"encoding/json"
@@ -225,6 +225,13 @@ func main() {
 	})
 
 	if *httpsHost != "" {
+		// Still create an http server, but make it always redirect to https
+		s := http.Server{
+			Handler: http.RedirectHandler("https://"+*httpsHost, http.StatusMovedPermanently),
+		}
+		go func() { log.Fatal(s.ListenAndServe()) }()
+
+		// The https server does all of the work and blocks until it's closed.
 		log.Fatal(http.Serve(autocert.NewListener(*httpsHost), nil))
 	} else {
 		// Don't do any SSL stuff (useful for development)
