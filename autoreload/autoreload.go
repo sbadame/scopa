@@ -1,3 +1,7 @@
+// Package autoreload provides a simple solution to updating running programs.
+// When clients replace the binary pointed to by the /proc/self/exe symlink, this program restarts itsself with the new version of the binary.
+// Flags and Environment variables are preserved.
+// Only works on Linux. (Maybe other Unixes?)
 package autoreload
 
 import (
