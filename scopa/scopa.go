@@ -1,10 +1,9 @@
 package scopa
 
 // TODO:
-//  1. Re-shuffling if the table has 3-4 Kings on the initial deal.
-//  2. Forcing a place to make a trick if they can.
-//  3. Forcing that only captures a single card and not multiple cards.
-//  4. Support for 4 players?
+//  1. Forcing a place to make a trick if they can.
+//  2. Forcing that only captures a single card and not multiple cards.
+//  3. Support for 4 players?
 
 import (
 	"fmt"
@@ -97,13 +96,27 @@ func NewGame() State {
 
 	// Now lets deal out the cards
 	cards := NewDeck()
-	Shuffle(cards)
+
+	// Keep shuffling until we don't see more than 2 Re's on the table (first 4 cards)
+	for {
+		Shuffle(cards)
+
+		r := 0
+		for i := 0; i < 4; i++ {
+			if (cards[i].Value == 10) {
+				r += 1
+			}
+		}
+		if (r <= 2) {
+			break
+		}
+	}
 
 	// This is not the standard dealing order...  Oh well...
-	// 3 cards to each player, 4 on the table, rest go into the Game's deck.
-	p1.Hand = append(p1.Hand, cards[:3]...)
-	p2.Hand = append(p2.Hand, cards[3:6]...)
-	s.Table = append(s.Table, cards[6:10]...)
+	// 4 on the table, 3 cards to each player, rest go into the Game's deck.
+	s.Table = append(s.Table, cards[:4]...)
+	p1.Hand = append(p1.Hand, cards[4:7]...)
+	p2.Hand = append(p2.Hand, cards[7:10]...)
 	s.Deck = append(s.Deck, cards[10:]...)
 
 	return s
