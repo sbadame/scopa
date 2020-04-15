@@ -389,6 +389,18 @@ func (s *State) Take(card Card, table []Card) error {
 		return err
 	}
 
+	// Take the Face
+	var v int := card.Value
+	if v > 7 {
+		// Check if there is a face match
+		for _, t:= range s.Table {
+			// If there card in your hand direct equals a card in the pot and you're trying to take > 1.... no no no
+			if ((v == t) && (len(table) > 1) && (Contains(t, table))) {
+				return fmt.Errorf("You gotta take %v", t)
+			}
+		}
+	}
+
 	// Looking good! Lets do the move!
 	playerId := s.NextPlayer - 1
 	p := &s.Players[playerId]
