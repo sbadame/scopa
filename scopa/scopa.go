@@ -189,7 +189,7 @@ func Index(c Card, s []Card) int {
 }
 
 func Contains(c Card, s []Card) bool {
-	return Index(c, s) == -1
+	return Index(c, s) != -1
 }
 
 func Remove(i int, s []Card) []Card {
@@ -380,7 +380,7 @@ func (s *State) Take(card Card, table []Card) error {
 
 	// Check that the cards are actually on the table.
 	for _, t := range table {
-		if Contains(t, s.Table) {
+		if  !Contains(t, s.Table) {
 			return fmt.Errorf("%v is not a card on the table: %v", t, s.Table)
 		}
 	}
@@ -390,12 +390,12 @@ func (s *State) Take(card Card, table []Card) error {
 	}
 
 	// Take the Face
-	var v int := card.Value
-	if v > 7 {
+	v := card.Value
+	if (v > 7) && (len(table) > 1)  {
 		// Check if there is a face match
 		for _, t:= range s.Table {
 			// If there card in your hand direct equals a card in the pot and you're trying to take > 1.... no no no
-			if ((v == t) && (len(table) > 1) && (Contains(t, table))) {
+			if (v == t.Value) && (!Contains(t, table)) {
 				return fmt.Errorf("You gotta take %v", t)
 			}
 		}
