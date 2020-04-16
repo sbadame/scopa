@@ -23,6 +23,11 @@ var (
 	httpsHost = flag.String("https_host", "", "Set this to the hostname to get a Let's Encrypt SSL certifcate for.")
 )
 
+// Wrap error messages into json so that javascript client code can always expect json.
+func errorJson(message string) string {
+	return "{\"Type\": \"ERROR\", \"Message\": \"" + message + "\"}"
+}
+
 // /drop request content body json is marsheled into this struct.
 type drop struct {
 	PlayerId int
@@ -46,20 +51,20 @@ func parseRequestJson(w http.ResponseWriter, r *http.Request, v interface{}) boo
 	c, err := strconv.Atoi(r.Header["Content-Length"][0])
 	if err != nil {
 		w.WriteHeader(500)
-		io.WriteString(w, fmt.Sprintf("Couldn't get the content length: %v", err))
+		io.WriteString(w, errorJson(fmt.Sprintf("Couldn't get the content length: %v", err)))
 		return false
 	}
 
 	buf := make([]byte, c)
 	if _, err := io.ReadFull(r.Body, buf); err != nil {
 		w.WriteHeader(500)
-		io.WriteString(w, fmt.Sprintf("Error reading data: %v", err))
+		io.WriteString(w, errorJson(fmt.Sprintf("Error reading data: %v", err)))
 		return false
 	}
 
 	if err := json.Unmarshal(buf, &v); err != nil {
 		w.WriteHeader(400)
-		io.WriteString(w, fmt.Sprintf("Error parsing json: %v", err))
+		io.WriteString(w, errorJson(fmt.Sprintf("Error parsing json: %v", err)))
 		return false
 	}
 	return true
@@ -147,7 +152,7 @@ func main() {
 				State: state,
 			}
 			if err := websocket.JSON.Send(ws, s); err != nil {
-				io.WriteString(ws, fmt.Sprintf("{\"Type\": \"ERROR\", \"Message\": \"state json send error: %#v\"}", err))
+				io.WriteString(ws, errorJson(fmt.Sprintf("state json send error: %#v", err)))
 				return
 			}
 
@@ -167,15 +172,20 @@ func main() {
 
 		if d.PlayerId != state.NextPlayer {
 			w.WriteHeader(400)
-			io.WriteString(w, "{\"Message\": \"Not your turn!\"}")
+			io.WriteString(w, errorJson("Not your turn!"))
 			return
 		}
 
 		logs = append(logs, fmt.Sprintf("state: %#v\n", state))
 		if err := state.Drop(d.Card); err != nil {
-			w.WriteHeader(500)
-			io.WriteString(w, fmt.Sprintf("Couldn't drop: %v", err))
-			logs = append(logs, fmt.Sprintf("FAIL drop: %#v\n", d.Card))
+			switch err.(type) {
+			case scopa.MoveError:
+				w.WriteHeader(400)
+			default:
+				w.WriteHeader(500)
+			}
+			io.WriteString(w, errorJson(err.Error()))
+			logs = append(logs, fmt.Sprintf("FAIL drop: %#v, %#v\n", d.Card, err))
 			return
 		}
 		logs = append(logs, fmt.Sprintf("drop: %#v\n", d.Card))
@@ -198,15 +208,20 @@ func main() {
 
 		if t.PlayerId != state.NextPlayer {
 			w.WriteHeader(400)
-			io.WriteString(w, "{\"Message\": \"Not your turn!\"}")
+			io.WriteString(w, errorJson("Not your turn!"))
 			return
 		}
 
 		logs = append(logs, fmt.Sprintf("state: %#v\n", state))
 		if err := state.Take(t.Card, t.Table); err != nil {
-			w.WriteHeader(500)
-			io.WriteString(w, fmt.Sprintf("Couldn't take: %v", err))
-			logs = append(logs, fmt.Sprintf("FAIL take: %#v, %#v\n", t.Card, t.Table))
+			switch err.(type) {
+			case scopa.MoveError:
+				w.WriteHeader(400)
+			default:
+				w.WriteHeader(500)
+			}
+			io.WriteString(w, errorJson(err.Error()))
+			logs = append(logs, fmt.Sprintf("FAIL take: %#v, %#v, %#v\n", t.Card, t.Table, err))
 			return
 		}
 

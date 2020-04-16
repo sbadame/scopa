@@ -9,12 +9,16 @@ import (
 	"math/rand"
 )
 
-type moveError struct {
+type MoveError struct {
 	message string
 }
 
-func (e *moveError) Error() string {
+func (e MoveError) Error() string {
 	return e.message
+}
+
+func moveErrorf(format string, a ...interface{}) error {
+	return &MoveError{fmt.Sprintf(format, a...)}
 }
 
 type Suite int
@@ -326,12 +330,6 @@ func Primera(p1, p2 *Player) {
 }
 
 func (s *State) EndTurn() error {
-	// Check the state before switching to the next player...
-	if err := s.Check(); err != nil {
-		fmt.Printf("---- FAIL --- \n%#v\n", s)
-		return err
-	}
-
 	// Move the turn to the next player.
 	s.NextPlayer += 1
 	if s.NextPlayer > len(s.Players) {
@@ -369,18 +367,18 @@ func (s *State) EndTurn() error {
 func (s *State) Take(card Card, table []Card) error {
 	// Validating inputs...
 	// Check that the math works out...
-	var sum int
+	sum := 0
 	for _, t := range table {
 		sum += t.Value
 	}
 	if sum != card.Value {
-		return &moveError{fmt.Sprintf("%v can't take %v", card, table)}
+		return moveErrorf("%v can't take %v", card, table)
 	}
 
 	// Check that the cards are actually on the table.
 	for _, t := range table {
 		if !Contains(t, s.Table) {
-			return fmt.Errorf("%v is not a card on the table: %v", t, s.Table)
+			return moveErrorf("%v is not a card on the table: %v", t, s.Table)
 		}
 	}
 
@@ -395,7 +393,7 @@ func (s *State) Take(card Card, table []Card) error {
 		for _, t := range s.Table {
 			// If there card in your hand direct equals a card in the pot and you're trying to take > 1.... no no no
 			if (v == t.Value) && (!Contains(t, table)) {
-				return fmt.Errorf("You gotta take %v", t)
+				return moveErrorf("You gotta take %v", t)
 			}
 		}
 	}
@@ -437,9 +435,6 @@ func (s *State) Take(card Card, table []Card) error {
 }
 
 func (s *State) Drop(card Card) error {
-
-	fmt.Printf("---- DROP --- \n%#v\n", s)
-
 	// Validating inputs...
 	if err := s.CheckCurrentPlayerHasCard(card); err != nil {
 		return err
