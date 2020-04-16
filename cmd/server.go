@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-    "github.com/sbadame/scopa/scopa"
-    _ "github.com/sbadame/scopa/autoreload"
+	_ "github.com/sbadame/scopa/autoreload"
+	"github.com/sbadame/scopa/scopa"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/websocket"
 	"io"
@@ -22,12 +22,6 @@ var (
 	random    = flag.Bool("random", false, "When set to true, actually uses a random seed.")
 	httpsHost = flag.String("https_host", "", "Set this to the hostname to get a Let's Encrypt SSL certifcate for.")
 )
-
-// To test with no random seed:
-// $ curl -v localhost:8080/join
-// $ curl -v localhost:8080/state
-// $ curl -v localhost:8080/take -H "Content-Type: application/json" --data '{"PlayerId": 1, "Card": {"Suite":4, "Value":2}, "Table": [{"Suite": 1, "Value": 2}]}'
-// $ curl -v localhost:8080/drop -H "Content-Type: application/json" --data '{"Card": {"Suite":4, "Value":2}}'
 
 // /drop request content body json is marsheled into this struct.
 type drop struct {

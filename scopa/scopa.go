@@ -2,8 +2,7 @@ package scopa
 
 // TODO:
 //  1. Forcing a place to make a trick if they can.
-//  2. Forcing that only captures a single card and not multiple cards.
-//  3. Support for 4 players?
+//  2. Support for 4 players?
 
 import (
 	"fmt"
@@ -380,7 +379,7 @@ func (s *State) Take(card Card, table []Card) error {
 
 	// Check that the cards are actually on the table.
 	for _, t := range table {
-		if  !Contains(t, s.Table) {
+		if !Contains(t, s.Table) {
 			return fmt.Errorf("%v is not a card on the table: %v", t, s.Table)
 		}
 	}
@@ -391,9 +390,9 @@ func (s *State) Take(card Card, table []Card) error {
 
 	// Take the Face
 	v := card.Value
-	if (v > 7) && (len(table) > 1)  {
+	if (v > 7) && (len(table) > 1) {
 		// Check if there is a face match
-		for _, t:= range s.Table {
+		for _, t := range s.Table {
 			// If there card in your hand direct equals a card in the pot and you're trying to take > 1.... no no no
 			if (v == t.Value) && (!Contains(t, table)) {
 				return fmt.Errorf("You gotta take %v", t)
