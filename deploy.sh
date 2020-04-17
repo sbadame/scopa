@@ -1,6 +1,12 @@
 #!/bin/bash
 
-go build cmd/server.go || exit 2
+# Check that all changes are commited before going further.
+if ! git diff --quiet; then
+  echo "Commit all changes before deploying. Exiting script..."
+  exit 1
+fi
+
+go build -ldflags "-X main.gitCommit=$(git rev-parse HEAD)" cmd/server.go || exit 2
 
 gcloud compute instances add-metadata --zone "us-east1-b" "scopaserver" --project "scopa-273021" --metadata startup-script='
 #!/bin/bash

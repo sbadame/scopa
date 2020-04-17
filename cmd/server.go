@@ -21,6 +21,9 @@ var (
 	port      = flag.Int("port", 8080, "The port to listen on for requests.")
 	random    = flag.Bool("random", false, "When set to true, actually uses a random seed.")
 	httpsHost = flag.String("https_host", "", "Set this to the hostname to get a Let's Encrypt SSL certifcate for.")
+
+	// Populated at compile time with `go build/run -ldflags "-X main.gitCommit=$(git rev-parse HEAD)"`
+	gitCommit string
 )
 
 // Wrap error messages into json so that javascript client code can always expect json.
@@ -113,6 +116,11 @@ func main() {
 
 	// Get Debug logs to repro
 	http.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) {
+		if len(gitCommit) > 0 {
+		    io.WriteString(w, fmt.Sprintf("Version: git checkout %s\n", gitCommit))
+		} else {
+		    io.WriteString(w, "Built with an unknown git version (-X main.gitCommit was not set)\n")
+		}
 		stateMux.Lock()
 		defer stateMux.Unlock()
 		for _, s := range logs {
