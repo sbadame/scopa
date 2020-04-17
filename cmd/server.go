@@ -117,9 +117,9 @@ func main() {
 	// Get Debug logs to repro
 	http.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) {
 		if len(gitCommit) > 0 {
-		    io.WriteString(w, fmt.Sprintf("Version: git checkout %s\n", gitCommit))
+			io.WriteString(w, fmt.Sprintf("Version: git checkout %s\n", gitCommit))
 		} else {
-		    io.WriteString(w, "Built with an unknown git version (-X main.gitCommit was not set)\n")
+			io.WriteString(w, "Built with an unknown git version (-X main.gitCommit was not set)\n")
 		}
 		stateMux.Lock()
 		defer stateMux.Unlock()
