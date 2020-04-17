@@ -9,18 +9,6 @@ import (
 	"math/rand"
 )
 
-type MoveError struct {
-	message string
-}
-
-func (e MoveError) Error() string {
-	return e.message
-}
-
-func moveErrorf(format string, a ...interface{}) error {
-	return &MoveError{fmt.Sprintf(format, a...)}
-}
-
 type Suite int
 
 const (
@@ -66,6 +54,31 @@ type State struct {
 	Table            []Card
 	Players          []Player
 	LastMove         move
+}
+
+// An error for when the player is trying a move that is invalid.
+type MoveError struct {
+	message string
+}
+
+func (e MoveError) Error() string {
+	return e.message
+}
+
+func moveErrorf(format string, a ...interface{}) error {
+	return &MoveError{fmt.Sprintf(format, a...)}
+}
+
+func badMathTake(card Card, take []Card) error {
+	return moveErrorf("%v can't take %v", card, take)
+}
+
+func cardMissingFromTable(card Card, table []Card) error {
+	return moveErrorf("%v is not a card on the table %v", card, table)
+}
+
+func perroError(card Card) error {
+	return moveErrorf("You gotta take %v", card)
 }
 
 func NewDeck() []Card {
@@ -372,13 +385,13 @@ func (s *State) Take(card Card, table []Card) error {
 		sum += t.Value
 	}
 	if sum != card.Value {
-		return moveErrorf("%v can't take %v", card, table)
+		return badMathTake(card, table)
 	}
 
 	// Check that the cards are actually on the table.
 	for _, t := range table {
 		if !Contains(t, s.Table) {
-			return moveErrorf("%v is not a card on the table: %v", t, s.Table)
+			return cardMissingFromTable(t, s.Table)
 		}
 	}
 
@@ -393,7 +406,7 @@ func (s *State) Take(card Card, table []Card) error {
 		for _, t := range s.Table {
 			// If there card in your hand direct equals a card in the pot and you're trying to take > 1.... no no no
 			if (v == t.Value) && (!Contains(t, table)) {
-				return moveErrorf("You gotta take %v", t)
+				return perroError(t)
 			}
 		}
 	}
