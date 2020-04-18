@@ -9,10 +9,10 @@ import (
 	"math/rand"
 )
 
-type Suite int
+type Suit int
 
 const (
-	UnknownSuite Suite = iota
+	UnknownSuit Suit = iota
 	Denari
 	Coppe
 	Bastoni
@@ -20,7 +20,7 @@ const (
 )
 
 type Card struct {
-	Suite Suite
+	Suit Suit
 	Value int
 }
 
@@ -89,7 +89,7 @@ func NewDeck() []Card {
 	i := 0
 	for s := 1; s <= 4; s++ {
 		for v := 1; v <= 10; v++ {
-			d[i] = Card{Suite(s), v}
+			d[i] = Card{Suit(s), v}
 			i += 1
 		}
 	}
@@ -255,14 +255,14 @@ func MostCards(p1, p2 *Player) {
 func MostDenari(p1, p2 *Player) {
 	var a int
 	for _, c := range p1.Grabbed {
-		if c.Suite == Denari {
+		if c.Suit == Denari {
 			a += 1
 		}
 	}
 
 	var b int
 	for _, c := range p2.Grabbed {
-		if c.Suite == Denari {
+		if c.Suit == Denari {
 			b += 1
 		}
 	}
@@ -311,16 +311,16 @@ func playerPrimera(p Player) int {
 
 	var d, s, k, b int
 	for _, c := range p.Grabbed {
-		if c.Suite == Denari {
+		if c.Suit == Denari {
 			d = max(d, points[c.Value])
 		}
-		if c.Suite == Spade {
+		if c.Suit == Spade {
 			s = max(s, points[c.Value])
 		}
-		if c.Suite == Coppe {
+		if c.Suit == Coppe {
 			k = max(k, points[c.Value])
 		}
-		if c.Suite == Bastoni {
+		if c.Suit == Bastoni {
 			b = max(b, points[c.Value])
 		}
 	}
