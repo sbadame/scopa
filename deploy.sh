@@ -17,8 +17,6 @@ sudo apt-get install libcap2-bin
 cd /home/sandro/scopa
 
 # Grant the server permission to bind to low ports.
-# pie means that the permissons are permitted, inheritable and effective.
-# This is important for the autoreload feature which starts a new process.
 sudo setcap cap_net_bind_service=+pie server
 
 # Run the server with dropped permissions.
