@@ -15,7 +15,12 @@ gcloud compute instances add-metadata --zone "us-east1-b" "scopaserver" --projec
 sudo apt-get install libcap2-bin
 
 cd /home/sandro/scopa
-sudo setcap cap_net_bind_service=+ep server
+
+# https://linux.die.net/man/7/capabilities grant the server permission to bind to low ports.
+# (80 and 443 are important to us.)
+# pie means that the permissons are permitted, inheritable and effective.
+# This is important for the autoreload feature which starts a new process.
+sudo setcap cap_net_bind_service=+pie server
 
 # Run the server with dropped permissions.
 sudo -u sandro /home/sandro/scopa/server -https_host scopa.sandr.io -random
