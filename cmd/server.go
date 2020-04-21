@@ -22,7 +22,7 @@ var (
 	httpPort  = flag.Int("http_port", 8080, "The port to listen on for http requests.")
 	random    = flag.Bool("random", false, "When set to true, actually uses a random seed.")
 	httpsPort = flag.Int("https_port", 8081, "The port to listen on for https requests.")
-	httpsHost = flag.String("https_host", "", "Set this to the hostname to get a Let's Encrypt SSL certifcate for.")
+	httpsHost = flag.String("https_host", "", "Set this to the hostname to get a Let's Encrypt SSL certificate for.")
 
 	// Populated at compile time with `go build/run -ldflags "-X main.gitCommit=$(git rev-parse HEAD)"`
 	gitCommit string
