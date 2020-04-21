@@ -12,6 +12,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -92,6 +93,10 @@ func allocatePlayerId() (int, error) {
 }
 
 func main() {
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\nBuilt at version: %s\n", os.Args[0], gitCommit)
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 	if *random {
 		rand.Seed(time.Now().Unix())
@@ -266,6 +271,6 @@ func main() {
 		log.Fatal(ss.ListenAndServeTLS("", ""))
 	} else {
 		// Don't do any SSL stuff (useful for development)
-		http.ListenAndServe(":"+strconv.Itoa(*httpPort), nil)
+		log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*httpPort), nil))
 	}
 }
