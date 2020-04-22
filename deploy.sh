@@ -12,8 +12,8 @@ gcloud compute instances add-metadata --zone "us-east1-b" "scopaserver" --projec
 #!/bin/bash
 
 # Configure port forwarding so that the server need not run as root.
-iptables -t nat -A OUTPUT -o lo -p tcp --dport 80 -j REDIRECT --to-port 8080
-iptables -t nat -A OUTPUT -o lo -p tcp --dport 443 -j REDIRECT --to-port 8081
+iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 8080
+iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 443 -j REDIRECT --to-port 8081
 
 # Run the server with dropped permissions.
 cd /home/sandro/scopa
