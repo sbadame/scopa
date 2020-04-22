@@ -12,15 +12,17 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
 )
 
 var (
-	port      = flag.Int("port", 8080, "The port to listen on for requests.")
+	httpPort  = flag.Int("http_port", 8080, "The port to listen on for http requests.")
 	random    = flag.Bool("random", false, "When set to true, actually uses a random seed.")
-	httpsHost = flag.String("https_host", "", "Set this to the hostname to get a Let's Encrypt SSL certifcate for.")
+	httpsPort = flag.Int("https_port", 8081, "The port to listen on for https requests.")
+	httpsHost = flag.String("https_host", "", "Set this to the hostname to get a Let's Encrypt SSL certificate for.")
 
 	// Populated at compile time with `go build/run -ldflags "-X main.gitCommit=$(git rev-parse HEAD)"`
 	gitCommit string
@@ -91,6 +93,10 @@ func allocatePlayerId() (int, error) {
 }
 
 func main() {
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\nBuilt at version: %s\n", os.Args[0], gitCommit)
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 	if *random {
 		rand.Seed(time.Now().Unix())
@@ -245,14 +251,26 @@ func main() {
 	if *httpsHost != "" {
 		// Still create an http server, but make it always redirect to https
 		s := http.Server{
+			Addr:    ":" + strconv.Itoa(*httpPort),
 			Handler: http.RedirectHandler("https://"+*httpsHost, http.StatusMovedPermanently),
 		}
 		go func() { log.Fatal(s.ListenAndServe()) }()
 
+		// To avoid the need to bind to 80/443 directly (and thus requiring the server to run as root)
+		// we need to create our own autocert.Manager instead of using autocert.NewListener()
+		m := autocert.Manager{
+			Prompt:     autocert.AcceptTOS,
+			Cache:      autocert.DirCache("golang-autocert"),
+			HostPolicy: autocert.HostWhitelist(*httpsHost),
+		}
+		ss := &http.Server{
+			Addr:      ":" + strconv.Itoa(*httpsPort),
+			TLSConfig: m.TLSConfig(),
+		}
 		// The https server does all of the work and blocks until it's closed.
-		log.Fatal(http.Serve(autocert.NewListener(*httpsHost), nil))
+		log.Fatal(ss.ListenAndServeTLS("", ""))
 	} else {
 		// Don't do any SSL stuff (useful for development)
-		http.ListenAndServe(":"+strconv.Itoa(*port), nil)
+		log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*httpPort), nil))
 	}
 }
