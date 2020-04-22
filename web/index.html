@@ -138,7 +138,7 @@
       tableDiv.id = 'table';
 
 			for (let t of state.Table) {
-        let c = renderCard(t.Suite, t.Value);
+        let c = renderCard(t.Suit, t.Value);
         c.addEventListener('click', (e) => {
           let i = globalTableSelected.indexOf(t);
           if (i == -1) {
@@ -156,7 +156,7 @@
       hand.id = 'hand';
       let i = 0;
       for (let t of state.Players[playerId - 1].Hand) {
-        let c = renderCard(t.Suite, t.Value);
+        let c = renderCard(t.Suit, t.Value);
         c.style.transform = `rotate(${(i*20)-20}deg)`;
         if (i === 1) {
           c.style.zIndex = 1;
@@ -206,10 +206,10 @@
     function lastMove(move) {
 
       function name(card) {
-        if (card.Suite === 1 && card.Value == 7) {
+        if (card.Suit === 1 && card.Value == 7) {
           return 'Settebello';
         }
-        const {Suite, Value} = card;
+        const {Suit, Value} = card;
         const suites = {
           1: 'Denari',
           2: 'Coppe',
@@ -229,7 +229,7 @@
           10: 'Re'
 
         };
-        return `${values[Value]} di ${suites[Suite]}`;
+        return `${values[Value]} di ${suites[Suit]}`;
       }
 
       function names(cards) {
