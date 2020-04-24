@@ -29,7 +29,7 @@ var (
 )
 
 // Wrap error messages into json so that javascript client code can always expect json.
-func errorJson(message string) string {
+func errorJSON(message string) string {
 	return "{\"Type\": \"ERROR\", \"Message\": \"" + message + "\"}"
 }
 
@@ -52,44 +52,62 @@ type update struct {
 	State scopa.State
 }
 
-func parseRequestJson(w http.ResponseWriter, r *http.Request, v interface{}) bool {
+type Game struct {
+	sync.Mutex
+	state       scopa.State
+	gameId      int64
+	clients     []chan struct{}
+	logs        []string
+	playerCount int
+}
+
+func NewGame() Game {
+	return Game{
+		sync.Mutex{},
+		scopa.NewGame(),
+		time.Now().Unix(),
+		make([]chan struct{}, 0),
+		make([]string, 0),
+		0,
+	}
+}
+
+// Keep track of the number of players that have "joined".
+// Give them a player id.
+
+func (g *Game) allocatePlayerId() (int, error) {
+	g.Lock()
+	defer g.Unlock()
+
+	if g.playerCount >= 2 {
+		return -1, fmt.Errorf("{\"Message\": \"Game is full!\"}")
+	}
+
+	g.playerCount++
+	return g.playerCount, nil
+}
+
+func parseRequestJSON(w http.ResponseWriter, r *http.Request, v interface{}) bool {
 	c, err := strconv.Atoi(r.Header["Content-Length"][0])
 	if err != nil {
 		w.WriteHeader(500)
-		io.WriteString(w, errorJson(fmt.Sprintf("Couldn't get the content length: %v", err)))
+		io.WriteString(w, errorJSON(fmt.Sprintf("Couldn't get the content length: %v", err)))
 		return false
 	}
 
 	buf := make([]byte, c)
 	if _, err := io.ReadFull(r.Body, buf); err != nil {
 		w.WriteHeader(500)
-		io.WriteString(w, errorJson(fmt.Sprintf("Error reading data: %v", err)))
+		io.WriteString(w, errorJSON(fmt.Sprintf("Error reading data: %v", err)))
 		return false
 	}
 
 	if err := json.Unmarshal(buf, &v); err != nil {
 		w.WriteHeader(400)
-		io.WriteString(w, errorJson(fmt.Sprintf("Error parsing json: %v", err)))
+		io.WriteString(w, errorJSON(fmt.Sprintf("Error parsing json: %v", err)))
 		return false
 	}
 	return true
-}
-
-// Keep track of the number of players that have "joined".
-// Give them a player id.
-var playerCount int
-var playerMux sync.Mutex
-
-func allocatePlayerId() (int, error) {
-	playerMux.Lock()
-	defer playerMux.Unlock()
-
-	if playerCount >= 2 {
-		return -1, fmt.Errorf("{\"Message\": \"Game is full!\"}")
-	}
-
-	playerCount += 1
-	return playerCount, nil
 }
 
 func main() {
@@ -102,22 +120,14 @@ func main() {
 		rand.Seed(time.Now().Unix())
 	}
 
-	state := scopa.NewGame()
-	var stateMux sync.Mutex
-	gameId := time.Now().Unix()
-	clients := make([]chan struct{}, 0)
-	logs := make([]string, 0)
+	game := NewGame()
 
 	// Serve resources for testing.
 	http.Handle("/", http.FileServer(http.Dir("./web")))
 
 	// Reset the game...
 	http.HandleFunc("/reset", func(w http.ResponseWriter, r *http.Request) {
-		state = scopa.NewGame()
-		playerCount = 0
-		gameId = time.Now().Unix()
-		clients = make([]chan struct{}, 0)
-		logs = make([]string, 0)
+		game = NewGame()
 	})
 
 	// Get Debug logs to repro
@@ -127,9 +137,9 @@ func main() {
 		} else {
 			io.WriteString(w, "Built with an unknown git version (-X main.gitCommit was not set)\n")
 		}
-		stateMux.Lock()
-		defer stateMux.Unlock()
-		for _, s := range logs {
+		game.Lock()
+		defer game.Unlock()
+		for _, s := range game.logs {
 			io.WriteString(w, s)
 			io.WriteString(w, "\n")
 		}
@@ -141,8 +151,8 @@ func main() {
 
 		p := ws.Request().FormValue("PlayerId")
 		g := ws.Request().FormValue("GameId")
-		if p == "" || g == "" || g != strconv.FormatInt(gameId, 10) {
-			if playerId, err = allocatePlayerId(); err != nil {
+		if p == "" || g == "" || g != strconv.FormatInt(game.gameId, 10) {
+			if playerId, err = game.allocatePlayerId(); err != nil {
 				ws.Close()
 				return
 			}
@@ -152,21 +162,21 @@ func main() {
 				return
 			}
 		}
-		io.WriteString(ws, fmt.Sprintf("{\"Type\": \"INIT\", \"PlayerId\": %d, \"GameId\": %d}", playerId, gameId))
+		io.WriteString(ws, fmt.Sprintf("{\"Type\": \"INIT\", \"PlayerId\": %d, \"GameId\": %d}", playerId, game.gameId))
 
 		// "Register" a channel to listen to changes to.
 		updateChan := make(chan struct{}, 1000)
-		clients = append(clients, updateChan)
+		game.clients = append(game.clients, updateChan)
 
 		// Push the initial state, then keep pushing the full state with every change.
 		for {
 			// Push the game state
 			s := update{
 				Type:  "STATE",
-				State: state,
+				State: game.state,
 			}
 			if err := websocket.JSON.Send(ws, s); err != nil {
-				io.WriteString(ws, errorJson(fmt.Sprintf("state json send error: %#v", err)))
+				io.WriteString(ws, errorJSON(fmt.Sprintf("state json send error: %#v", err)))
 				return
 			}
 
@@ -176,21 +186,22 @@ func main() {
 	}))
 
 	http.HandleFunc("/drop", func(w http.ResponseWriter, r *http.Request) {
-		stateMux.Lock()
-		defer stateMux.Unlock()
+		game.Lock()
+		defer game.Unlock()
 
 		var d drop
-		if !parseRequestJson(w, r, &d) {
+		if !parseRequestJSON(w, r, &d) {
 			return
 		}
 
-		if d.PlayerId != state.NextPlayer {
+		if d.PlayerId != game.state.NextPlayer {
 			w.WriteHeader(400)
-			io.WriteString(w, errorJson("Not your turn!"))
+			io.WriteString(w, errorJSON("Not your turn!"))
 			return
 		}
 
-		logs = append(logs, fmt.Sprintf("state: %#v\n", state))
+		state := game.state
+		game.logs = append(game.logs, fmt.Sprintf("state: %#v\n", state))
 		if err := state.Drop(d.Card); err != nil {
 			switch err.(type) {
 			case scopa.MoveError:
@@ -198,35 +209,36 @@ func main() {
 			default:
 				w.WriteHeader(500)
 			}
-			io.WriteString(w, errorJson(err.Error()))
-			logs = append(logs, fmt.Sprintf("FAIL drop: %#v, %#v\n", d.Card, err))
+			io.WriteString(w, errorJSON(err.Error()))
+			game.logs = append(game.logs, fmt.Sprintf("FAIL drop: %#v, %#v\n", d.Card, err))
 			return
 		}
-		logs = append(logs, fmt.Sprintf("drop: %#v\n", d.Card))
+		game.logs = append(game.logs, fmt.Sprintf("drop: %#v\n", d.Card))
 
 		// Update all of the clients, that there is some new state.
-		for _, u := range clients {
+		for _, u := range game.clients {
 			var s struct{}
 			u <- s
 		}
 	})
 
 	http.HandleFunc("/take", func(w http.ResponseWriter, r *http.Request) {
-		stateMux.Lock()
-		defer stateMux.Unlock()
+		game.Lock()
+		defer game.Unlock()
 
 		var t take
-		if !parseRequestJson(w, r, &t) {
+		if !parseRequestJSON(w, r, &t) {
 			return
 		}
 
-		if t.PlayerId != state.NextPlayer {
+		if t.PlayerId != game.state.NextPlayer {
 			w.WriteHeader(400)
-			io.WriteString(w, errorJson("Not your turn!"))
+			io.WriteString(w, errorJSON("Not your turn!"))
 			return
 		}
 
-		logs = append(logs, fmt.Sprintf("state: %#v\n", state))
+		state := game.state
+		game.logs = append(game.logs, fmt.Sprintf("state: %#v\n", state))
 		if err := state.Take(t.Card, t.Table); err != nil {
 			switch err.(type) {
 			case scopa.MoveError:
@@ -234,15 +246,15 @@ func main() {
 			default:
 				w.WriteHeader(500)
 			}
-			io.WriteString(w, errorJson(err.Error()))
-			logs = append(logs, fmt.Sprintf("FAIL take: %#v, %#v, %#v\n", t.Card, t.Table, err))
+			io.WriteString(w, errorJSON(err.Error()))
+			game.logs = append(game.logs, fmt.Sprintf("FAIL take: %#v, %#v, %#v\n", t.Card, t.Table, err))
 			return
 		}
 
-		logs = append(logs, fmt.Sprintf("take: %#v, %#v\n", t.Card, t.Table))
+		game.logs = append(game.logs, fmt.Sprintf("take: %#v, %#v\n", t.Card, t.Table))
 
 		// Update all of the clients, that there is some new state.
-		for _, u := range clients {
+		for _, u := range game.clients {
 			var s struct{}
 			u <- s
 		}
