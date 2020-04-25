@@ -124,15 +124,15 @@ func main() {
 
 	match := newMatch()
 
-	// Serve resources for testing.
+	// Serve resources.
 	http.Handle("/", http.FileServer(http.Dir("./web")))
 
-	// Reset the match...
+	// Reset the match.
 	http.HandleFunc("/reset", func(w http.ResponseWriter, r *http.Request) {
 		match = newMatch()
 	})
 
-	// Get Debug logs to repro
+	// Provide Debug logs.
 	http.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) {
 		if len(gitCommit) > 0 {
 			io.WriteString(w, fmt.Sprintf("Version: git checkout %s\n", gitCommit))
