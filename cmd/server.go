@@ -60,6 +60,8 @@ type Match struct {
 	clients     []chan struct{}
 	logs        []string
 	playerCount int
+	nicks       map[string]int
+	gameStart   chan struct{} // Channel is closed when the game has started.
 }
 
 func newMatch() Match {
@@ -70,23 +72,45 @@ func newMatch() Match {
 		make([]chan struct{}, 0),
 		make([]string, 0),
 		0,
+		make(map[string]int, 0),
+		make(chan struct{}, 0),
 	}
 	m.logs = append(m.logs, fmt.Sprintf("state: %#v\n", m.state))
 	return m
 }
 
-// Keep track of the number of players that have "joined".
-// Give them a player id.
-func (m *Match) allocatePlayerID() (int, error) {
+func (m *Match) join(playerID int, matchID int64, nick string) (int, chan struct{}, error) {
 	m.Lock()
 	defer m.Unlock()
 
+	// If the matchIDs are equal, assume that someone is rejoining.
+	if matchID == m.ID {
+		return playerID, m.clients[playerID-1], nil
+	}
+
+	// Keep track of the number of players that have "joined".
+	// Give them a player id.
 	if m.playerCount >= 2 {
-		return -1, fmt.Errorf("{\"Message\": \"Match is full!\"}")
+		return -1, nil, fmt.Errorf(errorJSON("Match is full!"))
+	}
+
+	if m.nicks[nick] != 0 {
+		return -1, nil, fmt.Errorf(errorJSON(fmt.Sprintf("Nickname %s is already taken.", nick)))
 	}
 
 	m.playerCount++
-	return m.playerCount, nil
+	playerID = m.playerCount
+	m.nicks[nick] = playerID
+
+	// "Register" a channel to listen to changes to.
+	updateChan := make(chan struct{}, 1000)
+	m.clients = append(m.clients, updateChan)
+
+	if m.playerCount == 2 {
+		close(m.gameStart) // Broadcast that the game is ready to start to all clients.
+	}
+
+	return playerID, updateChan, nil
 }
 
 func parseRequestJSON(w http.ResponseWriter, r *http.Request, v interface{}) bool {
@@ -148,27 +172,48 @@ func main() {
 	})
 
 	http.Handle("/join", websocket.Handler(func(ws *websocket.Conn) {
-		var err error
-		playerID := 0
 
-		p := ws.Request().FormValue("PlayerID")
-		m := ws.Request().FormValue("MatchID")
-		if p == "" || m == "" || m != strconv.FormatInt(match.ID, 10) {
-			if playerID, err = match.allocatePlayerID(); err != nil {
-				ws.Close()
-				return
-			}
-		} else {
-			if playerID, err = strconv.Atoi(p); err != nil {
-				ws.Close()
+		errorf := func(format string, a ...interface{}) {
+			io.WriteString(ws, errorJSON(fmt.Sprintf(format, a...)))
+			ws.Close()
+		}
+
+		var err error
+
+		playerID := 0
+		pid := ws.Request().FormValue("PlayerID")
+		if pid != "" && pid != "null" {
+			if playerID, err = strconv.Atoi(pid); err != nil {
+				errorf("PlayerID has an invalid value: %s", err)
 				return
 			}
 		}
-		io.WriteString(ws, fmt.Sprintf("{\"Type\": \"INIT\", \"PlayerID\": %d, \"MatchId\": %d}", playerID, match.ID))
 
-		// "Register" a channel to listen to changes to.
-		updateChan := make(chan struct{}, 1000)
-		match.clients = append(match.clients, updateChan)
+		matchID := int64(0)
+		mid := ws.Request().FormValue("MatchID")
+		if mid != "" && mid != "null" {
+			if matchID, err = strconv.ParseInt(mid, 10, 64); err != nil {
+				errorf("MatchID has an invalid value: %s", err)
+				return
+			}
+		}
+
+		nick := ws.Request().FormValue("Nickname")
+		if nick == "" {
+			errorf("Nickname field needs to be set.")
+			return
+		}
+
+		playerID, updateChan, err := match.join(playerID, matchID, nick)
+		if err != nil {
+			errorf("%s", err)
+			return
+		}
+
+		// Block until all players have joined and the game is ready to start.
+		<-match.gameStart
+
+		io.WriteString(ws, fmt.Sprintf(`{"Type": "INIT", "PlayerID": %d, "MatchId": %d}`, playerID, match.ID))
 
 		// Push the initial state, then keep pushing the full state with every change.
 		for {

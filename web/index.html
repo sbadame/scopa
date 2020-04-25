@@ -244,8 +244,6 @@
                 return "";
             }
 
-            // If
-
             // Get the url for the page, but make the protocol ws:// or wss:// as needed.
             const wsUrl = new URL("/join", document.location.href); // Works for localhost, ip, and domain.
             wsUrl.protocol = wsUrl.protocol.replace("http", "ws"); // Also works for https -> wss
@@ -253,6 +251,7 @@
             // Pass in any known state.
             wsUrl.searchParams.append("PlayerID", window.localStorage.getItem("PlayerID"));
             wsUrl.searchParams.append("MatchId", window.localStorage.getItem("MatchId"));
+            wsUrl.searchParams.append("Nickname", window.localStorage.getItem("Nickname"));
 
             // Get streaming updates for game's states.
             const ws = new WebSocket(wsUrl);
