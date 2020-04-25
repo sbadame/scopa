@@ -52,16 +52,19 @@ type update struct {
 	State scopa.State
 }
 
+type player struct {
+	client chan struct{}
+	nick   string
+}
+
 // Match contains all of the state for a server coordinating a scopa match.
 type Match struct {
 	sync.Mutex
 	state       scopa.State
 	ID          int64
-	clients     []chan struct{}
 	logs        []string
-	playerCount int
-	nicks       map[string]int
 	gameStart   chan struct{} // Channel is closed when the game has started.
+	players     []player
 }
 
 func newMatch() Match {
@@ -69,11 +72,9 @@ func newMatch() Match {
 		sync.Mutex{},
 		scopa.NewGame(),
 		time.Now().Unix(),
-		make([]chan struct{}, 0),
 		make([]string, 0),
-		0,
-		make(map[string]int, 0),
 		make(chan struct{}, 0),
+		make([]player, 0),
 	}
 	m.logs = append(m.logs, fmt.Sprintf("state: %#v\n", m.state))
 	return m
@@ -83,30 +84,31 @@ func (m *Match) join(playerID int, matchID int64, nick string) (int, chan struct
 	m.Lock()
 	defer m.Unlock()
 
+
 	// If the matchIDs are equal, assume that someone is rejoining.
-	if matchID == m.ID {
-		return playerID, m.clients[playerID-1], nil
+	if playerID != 0 && matchID == m.ID {
+		u := make(chan struct{}, 1000)
+		m.players[playerID-1].client = u
+		return playerID, u, nil
 	}
 
 	// Keep track of the number of players that have "joined".
 	// Give them a player id.
-	if m.playerCount >= 2 {
-		return -1, nil, fmt.Errorf(errorJSON("Match is full!"))
+	if len(m.players) >= 2 {
+		return -1, nil, fmt.Errorf("match is full")
 	}
 
-	if m.nicks[nick] != 0 {
-		return -1, nil, fmt.Errorf(errorJSON(fmt.Sprintf("Nickname %s is already taken.", nick)))
+	for _, p := range m.players {
+		if p.nick == nick {
+			return -1, nil, fmt.Errorf("nickname %s is already taken", nick)
+		}
 	}
 
-	m.playerCount++
-	playerID = m.playerCount
-	m.nicks[nick] = playerID
-
-	// "Register" a channel to listen to changes to.
 	updateChan := make(chan struct{}, 1000)
-	m.clients = append(m.clients, updateChan)
+	m.players = append(m.players, player{updateChan, nick})
+	playerID = len(m.players)
 
-	if m.playerCount == 2 {
+	if len(m.players) == 2 {
 		close(m.gameStart) // Broadcast that the game is ready to start to all clients.
 	}
 
@@ -165,6 +167,8 @@ func main() {
 		}
 		match.Lock()
 		defer match.Unlock()
+
+		io.WriteString(w, fmt.Sprintf("MatchID: %d\n", match.ID))
 		for _, s := range match.logs {
 			io.WriteString(w, s)
 			io.WriteString(w, "\n")
@@ -181,8 +185,7 @@ func main() {
 		var err error
 
 		playerID := 0
-		pid := ws.Request().FormValue("PlayerID")
-		if pid != "" && pid != "null" {
+		if pid := ws.Request().FormValue("PlayerID"); pid != "" && pid != "null" && pid != "undefined" {
 			if playerID, err = strconv.Atoi(pid); err != nil {
 				errorf("PlayerID has an invalid value: %s", err)
 				return
@@ -190,8 +193,7 @@ func main() {
 		}
 
 		matchID := int64(0)
-		mid := ws.Request().FormValue("MatchID")
-		if mid != "" && mid != "null" {
+		if mid := ws.Request().FormValue("MatchID"); mid != "" && mid != "null" && mid != "undefined" {
 			if matchID, err = strconv.ParseInt(mid, 10, 64); err != nil {
 				errorf("MatchID has an invalid value: %s", err)
 				return
@@ -213,7 +215,24 @@ func main() {
 		// Block until all players have joined and the game is ready to start.
 		<-match.gameStart
 
-		io.WriteString(ws, fmt.Sprintf(`{"Type": "INIT", "PlayerID": %d, "MatchId": %d}`, playerID, match.ID))
+		init := struct {
+		    Type string
+		    PlayerID int
+		    MatchID int64
+		    Nicknames map[int]string
+		} {
+		    "INIT",
+		    playerID,
+		    matchID,
+		    make(map[int]string),
+		}
+		for i, p := range match.players {
+		    init.Nicknames[i+1]=p.nick
+		}
+		if err := websocket.JSON.Send(ws, init); err != nil {
+		    io.WriteString(ws, errorJSON("Failed to send the INIT message."))
+		    return
+		}
 
 		// Push the initial state, then keep pushing the full state with every change.
 		for {
@@ -264,9 +283,9 @@ func main() {
 		match.logs = append(match.logs, fmt.Sprintf("state: %#v\n", match.state))
 
 		// Update all of the clients, that there is some new state.
-		for _, u := range match.clients {
+		for _, p := range match.players {
 			var s struct{}
-			u <- s
+			p.client <- s
 		}
 	})
 
@@ -304,9 +323,9 @@ func main() {
 		match.logs = append(match.logs, fmt.Sprintf("state: %#v\n", match.state))
 
 		// Update all of the clients, that there is some new state.
-		for _, u := range match.clients {
+		for _, p := range match.players {
 			var s struct{}
-			u <- s
+			p.client <- s
 		}
 	})
 

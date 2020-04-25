@@ -250,7 +250,7 @@
 
             // Pass in any known state.
             wsUrl.searchParams.append("PlayerID", window.localStorage.getItem("PlayerID"));
-            wsUrl.searchParams.append("MatchId", window.localStorage.getItem("MatchId"));
+            wsUrl.searchParams.append("MatchID", window.localStorage.getItem("MatchID"));
             wsUrl.searchParams.append("Nickname", window.localStorage.getItem("Nickname"));
 
             // Get streaming updates for game's states.
@@ -261,7 +261,7 @@
                     case "INIT":
                         playerID = data.PlayerID;
                         window.localStorage.setItem("PlayerID", data.PlayerID);
-                        window.localStorage.setItem("MatchId", data.MatchId);
+                        window.localStorage.setItem("MatchID", data.MatchID);
                         break;
                     case "STATE":
                         renderState(data.State);
