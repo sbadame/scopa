@@ -20,7 +20,7 @@ const (
 )
 
 type Card struct {
-	Suit Suit
+	Suit  Suit
 	Value int
 }
 
@@ -33,12 +33,12 @@ type Player struct {
 }
 
 type drop struct {
-	PlayerId int
+	PlayerID int
 	Card     Card
 }
 
 type take struct {
-	PlayerId int
+	PlayerID int
 	Card     Card
 	Table    []Card
 }
@@ -47,6 +47,7 @@ type move struct {
 	Drop *drop
 	Take *take
 }
+
 type State struct {
 	NextPlayer       int
 	LastPlayerToTake int
@@ -56,7 +57,7 @@ type State struct {
 	LastMove         move
 }
 
-// An error for when the player is trying a move that is invalid.
+// MoveError is used when the player is attempting an invalid move.
 type MoveError struct {
 	message string
 }
@@ -81,6 +82,7 @@ func perroError(card Card) error {
 	return moveErrorf("You gotta take %v", card)
 }
 
+// NewDeck creates a newly shuffled deck.
 func NewDeck() []Card {
 
 	// Construct a full deck of cards.
@@ -90,7 +92,7 @@ func NewDeck() []Card {
 	for s := 1; s <= 4; s++ {
 		for v := 1; v <= 10; v++ {
 			d[i] = Card{Suit(s), v}
-			i += 1
+			i++
 		}
 	}
 	return d
@@ -222,8 +224,8 @@ func RemoveCard(c Card, s []Card) ([]Card, error) {
 
 func (s State) CheckCurrentPlayerHasCard(card Card) error {
 	// Check that the player actually has the card.
-	playerId := s.NextPlayer - 1
-	p := &s.Players[playerId]
+	playerID := s.NextPlayer - 1
+	p := &s.Players[playerID]
 	var handIndex int
 	if handIndex = Index(card, p.Hand); handIndex == -1 {
 		return fmt.Errorf("Player %d doesn't have %v in their hand: %v", s.NextPlayer, card, p.Hand)
@@ -344,7 +346,7 @@ func Primera(p1, p2 *Player) {
 
 func (s *State) EndTurn() error {
 	// Move the turn to the next player.
-	s.NextPlayer += 1
+	s.NextPlayer++
 	if s.NextPlayer > len(s.Players) {
 		s.NextPlayer = 1
 	}
@@ -412,26 +414,27 @@ func (s *State) Take(card Card, table []Card) error {
 	}
 
 	// Looking good! Lets do the move!
-	playerId := s.NextPlayer - 1
-	p := &s.Players[playerId]
+	playerID := s.NextPlayer - 1
+	p := &s.Players[playerID]
 
 	// Remove the card from the player's hand.
-	if newHand, err := RemoveCard(card, p.Hand); err != nil {
+	newHand, err := RemoveCard(card, p.Hand)
+	if err != nil {
 		return err
-	} else {
-		p.Hand = newHand
 	}
+
+	p.Hand = newHand
 
 	// Put it into the player's grabbed pile.
 	p.Grabbed = append(p.Grabbed, card)
 
 	// Remove the cards from the table.
 	for _, t := range table {
-		if newTable, err := RemoveCard(t, s.Table); err != nil {
+		newTable, err := RemoveCard(t, s.Table)
+		if err != nil {
 			return err
-		} else {
-			s.Table = newTable
 		}
+		s.Table = newTable
 	}
 
 	// Add them to the player's pile
@@ -439,7 +442,7 @@ func (s *State) Take(card Card, table []Card) error {
 
 	// Check if that was a scopa...
 	if len(s.Table) == 0 {
-		p.Scopas += 1
+		p.Scopas++
 	}
 
 	s.LastPlayerToTake = p.Id
@@ -454,15 +457,16 @@ func (s *State) Drop(card Card) error {
 	}
 
 	// Looks good, drop the card on the table.
-	playerId := s.NextPlayer - 1
-	p := &s.Players[playerId]
+	playerID := s.NextPlayer - 1
+	p := &s.Players[playerID]
 
 	// Remove the card from the player's hand.
-	if newHand, err := RemoveCard(card, p.Hand); err != nil {
+	newHand, err := RemoveCard(card, p.Hand)
+	if err != nil {
 		return err
-	} else {
-		p.Hand = newHand
 	}
+
+	p.Hand = newHand
 
 	// Add the card to the table
 	s.Table = append(s.Table, card)

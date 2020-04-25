@@ -73,8 +73,8 @@
     <body>
         <script>
             "use strict";
-            // The playerId once we know it.
-            var playerId = null;
+            // The playerID once we know it.
+            var playerID = null;
 
             // The latest state update.
             var globalState = null;
@@ -125,7 +125,7 @@
                 // Who's turn?
                 const turn = document.createElement("div");
                 turn.id = "turnIndicator";
-                if (playerId === state.NextPlayer) {
+                if (playerID === state.NextPlayer) {
                     turn.innerHTML = "Your turn";
                     game.classList.add("activeTurn");
                 } else {
@@ -155,7 +155,7 @@
                 const hand = document.createElement("div");
                 hand.id = "hand";
                 let i = 0;
-                for (let t of state.Players[playerId - 1].Hand) {
+                for (let t of state.Players[playerID - 1].Hand) {
                     let c = renderCard(t.Suit, t.Value);
                     c.style.transform = `rotate(${i * 20 - 20}deg)`;
                     if (i === 1) {
@@ -198,7 +198,7 @@
 
                 // What's this player's ID? (1 or 2?)
                 const player = document.createElement("div");
-                player.innerText = playerId;
+                player.innerText = playerID;
                 player.classList.add("player");
                 game.appendChild(player);
             }
@@ -235,11 +235,11 @@
                 }
 
                 if (move.Drop) {
-                    const { PlayerId, Card } = move.Drop;
-                    return `Player ${PlayerId} dropped the ${name(Card)}`;
+                    const { PlayerID, Card } = move.Drop;
+                    return `Player ${PlayerID} dropped the ${name(Card)}`;
                 } else if (move.Take) {
-                    const { PlayerId, Card, Table } = move.Take;
-                    return `Player ${PlayerId} took the ${names(Table)} with their ${name(Card)}`;
+                    const { PlayerID, Card, Table } = move.Take;
+                    return `Player ${PlayerID} took the ${names(Table)} with their ${name(Card)}`;
                 }
                 return "";
             }
@@ -251,8 +251,8 @@
             wsUrl.protocol = wsUrl.protocol.replace("http", "ws"); // Also works for https -> wss
 
             // Pass in any known state.
-            wsUrl.searchParams.append("PlayerId", window.localStorage.getItem("PlayerId"));
-            wsUrl.searchParams.append("GameId", window.localStorage.getItem("GameId"));
+            wsUrl.searchParams.append("PlayerID", window.localStorage.getItem("PlayerID"));
+            wsUrl.searchParams.append("MatchId", window.localStorage.getItem("MatchId"));
 
             // Get streaming updates for game's states.
             const ws = new WebSocket(wsUrl);
@@ -260,9 +260,9 @@
                 let data = JSON.parse(e.data);
                 switch (data.Type) {
                     case "INIT":
-                        playerId = data.PlayerId;
-                        window.localStorage.setItem("PlayerId", data.PlayerId);
-                        window.localStorage.setItem("GameId", data.GameId);
+                        playerID = data.PlayerID;
+                        window.localStorage.setItem("PlayerID", data.PlayerID);
+                        window.localStorage.setItem("MatchId", data.MatchId);
                         break;
                     case "STATE":
                         renderState(data.State);
@@ -295,9 +295,9 @@
             // cardIndex int - the index of the card to drop.
             // tableIndicies int[] - the list of the indicies from the table to pickup.
             async function take(cardIndex, tableIndicies) {
-                const playerCard = cardIndex ? globalState.Players[playerId - 1].Hand[cardIndex] : globalPlayerSelected;
+                const playerCard = cardIndex ? globalState.Players[playerID - 1].Hand[cardIndex] : globalPlayerSelected;
                 const tableCards = tableIndicies ? tableIndicies.map((i) => globalState.Table[i]) : globalTableSelected;
-                const result = await post("/take", { PlayerId: playerId, Card: playerCard, Table: tableCards });
+                const result = await post("/take", { PlayerID: playerID, Card: playerCard, Table: tableCards });
                 if ("Message" in result) {
                     alert(result.Message);
                 }
@@ -306,8 +306,8 @@
             // Drop the chosen card
             // cardIndex int - the index of the card to drop.
             async function drop(cardIndex) {
-                const playerCard = cardIndex ? globalState.Players[playerId - 1].Hand[cardIndex] : globalPlayerSelected;
-                const result = await post("/drop", { PlayerId: playerId, Card: playerCard });
+                const playerCard = cardIndex ? globalState.Players[playerID - 1].Hand[cardIndex] : globalPlayerSelected;
+                const result = await post("/drop", { PlayerID: playerID, Card: playerCard });
                 if ("Message" in result) {
                     alert(result.Message);
                 }
