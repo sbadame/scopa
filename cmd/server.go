@@ -30,7 +30,7 @@ var (
 
 // Wrap error messages into json so that javascript client code can always expect json.
 func errorJSON(message string) string {
-	return "{\"Type\": \"ERROR\", \"Message\": \"" + message + "\"}"
+	return `{"Message": "` + message + `"}`
 }
 
 // /drop request content body json is marsheled into this struct.
@@ -48,7 +48,6 @@ type take struct {
 
 // /join streams updates with JSON marshalled from this type to clients.
 type update struct {
-	Type  string
 	State scopa.State
 }
 
@@ -60,11 +59,11 @@ type player struct {
 // Match contains all of the state for a server coordinating a scopa match.
 type Match struct {
 	sync.Mutex
-	state       scopa.State
-	ID          int64
-	logs        []string
-	gameStart   chan struct{} // Channel is closed when the game has started.
-	players     []player
+	state     scopa.State
+	ID        int64
+	logs      []string
+	gameStart chan struct{} // Channel is closed when the game has started.
+	players   []player
 }
 
 func newMatch() Match {
@@ -84,12 +83,11 @@ func (m *Match) join(playerID int, matchID int64, nick string) (int, chan struct
 	m.Lock()
 	defer m.Unlock()
 
-
 	// If the matchIDs are equal, assume that someone is rejoining.
 	if playerID != 0 && matchID == m.ID {
-		u := make(chan struct{}, 1000)
-		m.players[playerID-1].client = u
-		return playerID, u, nil
+		c := make(chan struct{}, 1000)
+		m.players[playerID-1].client = c
+		return playerID, c, nil
 	}
 
 	// Keep track of the number of players that have "joined".
@@ -169,6 +167,7 @@ func main() {
 		defer match.Unlock()
 
 		io.WriteString(w, fmt.Sprintf("MatchID: %d\n", match.ID))
+		io.WriteString(w, fmt.Sprintf("Players: %#v\n", match.players))
 		for _, s := range match.logs {
 			io.WriteString(w, s)
 			io.WriteString(w, "\n")
@@ -212,33 +211,38 @@ func main() {
 			return
 		}
 
+		m := struct {
+			MatchID int64
+		}{
+			match.ID,
+		}
+		if err := websocket.JSON.Send(ws, m); err != nil {
+			io.WriteString(ws, errorJSON("Failed to send the MATCHID message."))
+			return
+		}
+
 		// Block until all players have joined and the game is ready to start.
 		<-match.gameStart
 
 		init := struct {
-		    Type string
-		    PlayerID int
-		    MatchID int64
-		    Nicknames map[int]string
-		} {
-		    "INIT",
-		    playerID,
-		    matchID,
-		    make(map[int]string),
+			PlayerID  int
+			Nicknames map[int]string
+		}{
+			playerID,
+			make(map[int]string),
 		}
 		for i, p := range match.players {
-		    init.Nicknames[i+1]=p.nick
+			init.Nicknames[i+1] = p.nick
 		}
 		if err := websocket.JSON.Send(ws, init); err != nil {
-		    io.WriteString(ws, errorJSON("Failed to send the INIT message."))
-		    return
+			io.WriteString(ws, errorJSON("Failed to send the INIT message."))
+			return
 		}
 
 		// Push the initial state, then keep pushing the full state with every change.
 		for {
 			// Push the match state
 			s := update{
-				Type:  "STATE",
 				State: match.state,
 			}
 			if err := websocket.JSON.Send(ws, s); err != nil {

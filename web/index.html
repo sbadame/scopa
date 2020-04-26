@@ -39,7 +39,7 @@
                 display: inline-block;
                 position: relative;
                 height: 166px;
-                width: 95px;
+                width: 100px;
 
                 margin: 3px;
                 border: solid black;
@@ -71,10 +71,25 @@
         </style>
     </head>
     <body>
+        <div id="game"></div>
+        <button onclick="newGame()">New Game</button>
+	<dialog id="nickname_dialog">
+		<form method="dialog">
+			<label for="nickname">Nickname:</label>
+			<input type="text" id="nickname" minlength="2" maxlength="10" size="10">
+		</form>
+	</dialog>
+	<dialog id="message_dialog">
+	    <p id="message"></p>
+	    <button type="button" id="message_dialog_close">Close</button>
+	</dialog>
         <script>
             "use strict";
             // The playerID once we know it.
             var playerID = null;
+
+	    // The nicksnames once we know them.
+	    var nicknames = null;
 
             // The latest state update.
             var globalState = null;
@@ -129,7 +144,7 @@
                     turn.innerHTML = "Your turn";
                     game.classList.add("activeTurn");
                 } else {
-                    turn.innerHTML = "Waiting for the other player.";
+		    turn.innerHTML = `${nicknames[state.NextPlayer]}'s turn`;
                 }
                 game.appendChild(turn);
 
@@ -244,32 +259,38 @@
                 return "";
             }
 
-            // Get the url for the page, but make the protocol ws:// or wss:// as needed.
-            const wsUrl = new URL("/join", document.location.href); // Works for localhost, ip, and domain.
-            wsUrl.protocol = wsUrl.protocol.replace("http", "ws"); // Also works for https -> wss
+	    function init() {
+		// Get the url for the page, but make the protocol ws:// or wss:// as needed.
+            	const wsUrl = new URL("/join", document.location.href); // Works for localhost, ip, and domain.
+            	wsUrl.protocol = wsUrl.protocol.replace("http", "ws"); // Also works for https -> wss
 
-            // Pass in any known state.
-            wsUrl.searchParams.append("PlayerID", window.localStorage.getItem("PlayerID"));
-            wsUrl.searchParams.append("MatchID", window.localStorage.getItem("MatchID"));
-            wsUrl.searchParams.append("Nickname", window.localStorage.getItem("Nickname"));
+            	// Pass in any known state.
+            	wsUrl.searchParams.append("PlayerID", window.localStorage.getItem("PlayerID"));
+            	wsUrl.searchParams.append("MatchID", window.localStorage.getItem("MatchID"));
+            	wsUrl.searchParams.append("Nickname", window.localStorage.getItem("Nickname"));
 
-            // Get streaming updates for game's states.
-            const ws = new WebSocket(wsUrl);
-            ws.addEventListener("message", (e) => {
-                let data = JSON.parse(e.data);
-                switch (data.Type) {
-                    case "INIT":
-                        playerID = data.PlayerID;
-                        window.localStorage.setItem("PlayerID", data.PlayerID);
-                        window.localStorage.setItem("MatchID", data.MatchID);
-                        break;
-                    case "STATE":
-                        renderState(data.State);
-                        break;
-                    default:
-                        console.log("Can't handle", data);
-                }
-            });
+            	// Get streaming updates for game's states.
+            	const ws = new WebSocket(wsUrl);
+            	ws.addEventListener("message", (e) => {
+            	    let data = JSON.parse(e.data);
+		    var d = {}
+		    d['Message'] = showDialog;
+		    d['Nicknames'] = n => { nicknames = n; };
+		    d['State'] = renderState;
+		    d['MatchID'] = m => window.localStorage.setItem("MatchID", m);
+		    d['PlayerID'] = p => {
+            	        playerID = p;
+			window.localStorage.setItem("PlayerID", p);
+		    };
+		    for (var key in data) {
+			if (d.hasOwnProperty(key)) {
+			    d[key](data[key]);
+			} else {
+			    console.log("Don't know how to handle key: " + key);
+			}
+		    }
+            	});
+	    }
 
             // From: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
             async function post(url, data) {
@@ -298,7 +319,7 @@
                 const tableCards = tableIndicies ? tableIndicies.map((i) => globalState.Table[i]) : globalTableSelected;
                 const result = await post("/take", { PlayerID: playerID, Card: playerCard, Table: tableCards });
                 if ("Message" in result) {
-                    alert(result.Message);
+                    showDialog(result.Message);
                 }
             }
 
@@ -308,7 +329,7 @@
                 const playerCard = cardIndex ? globalState.Players[playerID - 1].Hand[cardIndex] : globalPlayerSelected;
                 const result = await post("/drop", { PlayerID: playerID, Card: playerCard });
                 if ("Message" in result) {
-                    alert(result.Message);
+                    showDialog(result.Message);
                 }
             }
 
@@ -316,8 +337,27 @@
                 await post("/reset");
                 location.reload();
             }
+
+	    function showDialog(message) {
+		document.querySelector("#message").innerHTML = message;
+		document.querySelector("#message_dialog").showModal();
+	    }
+
+	    var nickname = window.localStorage.getItem("Nickname");
+	    if (!nickname) {
+		const dialog = document.querySelector("#nickname_dialog");
+		dialog.addEventListener('close', () => {
+		    window.localStorage.setItem("Nickname", document.querySelector("#nickname").value);
+		    init();
+		});
+		dialog.showModal();
+	    } else {
+		init();
+	    }
+
+	    document.querySelector("#message_dialog_close").addEventListener("click", () => {
+		document.querySelector("#message_dialog").close();
+	    });
         </script>
-        <div id="game"></div>
-        <button onclick="newGame()">New Game</button>
     </body>
 </html>
