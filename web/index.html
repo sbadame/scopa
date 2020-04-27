@@ -10,6 +10,41 @@
                 margin: 0px;
             }
 
+            :root {
+                --scorecard-color: #4e4e4e;
+            }
+
+            #scorecard {
+                position: absolute;
+                border-collapse: collapse;
+                width: 150px;
+                margin: 5px;
+                top: 30px;
+                color: var(--scorecard-color);
+            }
+
+            #scorecard thead tr {
+                border-bottom: 2px solid var(--scorecard-color);
+            }
+
+            #scorecard thead td:first-child {
+                border-right: 1px solid var(--scorecard-color);
+            }
+
+            #scorecard tbody {
+                vertical-align: top;
+                font-weight: bolder;
+                font-size: large;
+            }
+
+            #scorecard tbody tr {
+                height: 100px;
+            }
+
+            #scorecard tbody td:first-child {
+                border-right: 1px solid var(--scorecard-color);
+            }
+
             #game {
                 background-color: antiquewhite;
                 transition: background-color 2s ease;
@@ -28,6 +63,7 @@
             }
 
             #lastMove {
+                color: var(--scorecard-color);
                 font-style: italic;
                 padding-bottom: 20px;
                 min-height: 20px;
@@ -39,7 +75,7 @@
                 display: inline-block;
                 position: relative;
                 height: 166px;
-                width: 95px;
+                width: 100px;
 
                 margin: 3px;
                 border: solid black;
@@ -71,10 +107,37 @@
         </style>
     </head>
     <body>
+        <table id="scorecard">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tr>
+                <td></td>
+                <td></td>
+            </tr>
+        </table>
+        <div id="game"></div>
+        <button onclick="newGame()">New Game</button>
+        <dialog id="nickname_dialog">
+            <form method="dialog">
+                <label for="nickname">Nickname:</label>
+                <input type="text" id="nickname" minlength="2" maxlength="10" size="10" />
+            </form>
+        </dialog>
+        <dialog id="message_dialog">
+            <p id="message"></p>
+            <button type="button" id="message_dialog_close">Close</button>
+        </dialog>
         <script>
-            "use strict";
+            'use strict';
             // The playerID once we know it.
             var playerID = null;
+
+            // The nicksnames once we know them.
+            var nicknames = null;
 
             // The latest state update.
             var globalState = null;
@@ -86,17 +149,42 @@
             var globalPlayerSelected = null;
 
             // Contains the latest move
-            var globalLatestMove = "";
+            var globalLatestMove = '';
+
+            function renderScorecard(scorecard) {
+                const tallies = (times) => {
+                    let r = '';
+                    for (let i = 0; i < times; i++) {
+                        r += '|';
+                    }
+                    return r;
+                };
+
+                if (nicknames) {
+                    for (let n of Object.keys(nicknames)) {
+                        document.querySelector(`#scorecard th:nth-child(${n})`).innerText = nicknames[n];
+                    }
+                }
+
+                if (!scorecard) return;
+                const players = Object.keys(scorecard).sort();
+                for (var x = 0; x < players.length; x++) {
+                    var score = scorecard[players[x]];
+                    document.querySelector(`#scorecard th:nth-child(${x + 1})`).innerText = players[x];
+                    document.querySelector(`#scorecard td:nth-child(${x + 1})`).innerText =
+                        tallies(score) + ` (${score})`;
+                }
+            }
 
             function renderCard(suite, value) {
-                const card = document.createElement("div");
-                card.className = "cards";
+                const card = document.createElement('div');
+                card.className = 'cards';
                 card.style.backgroundPositionX = `-${(value - 1) * 100}px`;
                 card.style.backgroundPositionY = `-${(suite - 1) * 170}px`;
                 card.dataset.value = value;
                 card.dataset.suite = suite;
-                card.addEventListener("click", (e) => {
-                    e.target.classList.toggle("selected");
+                card.addEventListener('click', (e) => {
+                    e.target.classList.toggle('selected');
                 });
                 return card;
             }
@@ -112,34 +200,34 @@
                 globalPlayerSelected = [];
 
                 // Remove the current display if it.
-                let game = document.querySelector("#game");
-                game.innerHTML = "";
+                let game = document.querySelector('#game');
+                game.innerHTML = '';
                 game.classList.forEach((c) => game.classList.remove(c));
 
                 // What happened last?
-                const lastMoveDiv = document.createElement("div");
-                lastMoveDiv.innerText = lastMove(state.LastMove) || " ";
-                lastMoveDiv.id = "lastMove";
+                const lastMoveDiv = document.createElement('div');
+                lastMoveDiv.innerText = lastMove(state.LastMove) || ' ';
+                lastMoveDiv.id = 'lastMove';
                 game.appendChild(lastMoveDiv);
 
                 // Who's turn?
-                const turn = document.createElement("div");
-                turn.id = "turnIndicator";
+                const turn = document.createElement('div');
+                turn.id = 'turnIndicator';
                 if (playerID === state.NextPlayer) {
-                    turn.innerHTML = "Your turn";
-                    game.classList.add("activeTurn");
+                    turn.innerHTML = 'Your turn';
+                    game.classList.add('activeTurn');
                 } else {
-                    turn.innerHTML = "Waiting for the other player.";
+                    turn.innerHTML = `Waiting for ${nicknames[state.NextPlayer]}`;
                 }
                 game.appendChild(turn);
 
                 // What's on the table?
-                const tableDiv = document.createElement("div");
-                tableDiv.id = "table";
+                const tableDiv = document.createElement('div');
+                tableDiv.id = 'table';
 
                 for (let t of state.Table) {
                     let c = renderCard(t.Suit, t.Value);
-                    c.addEventListener("click", (e) => {
+                    c.addEventListener('click', (e) => {
                         let i = globalTableSelected.indexOf(t);
                         if (i == -1) {
                             globalTableSelected.push(t);
@@ -152,8 +240,8 @@
                 game.appendChild(tableDiv);
 
                 // What's in player's hand?
-                const hand = document.createElement("div");
-                hand.id = "hand";
+                const hand = document.createElement('div');
+                hand.id = 'hand';
                 let i = 0;
                 for (let t of state.Players[playerID - 1].Hand) {
                     let c = renderCard(t.Suit, t.Value);
@@ -161,7 +249,7 @@
                     if (i === 1) {
                         c.style.zIndex = 1;
                     }
-                    c.addEventListener("click", (e) => {
+                    c.addEventListener('click', (e) => {
                         globalPlayerSelected = t;
                     });
                     hand.appendChild(c);
@@ -170,117 +258,126 @@
                 game.appendChild(hand);
 
                 // Give the player options...
-                const takeButton = document.createElement("button");
-                takeButton.innerText = "Take";
-                takeButton.addEventListener("click", (e) => {
+                const takeButton = document.createElement('button');
+                takeButton.innerText = 'Take';
+                takeButton.addEventListener('click', (e) => {
                     take();
                 });
                 game.appendChild(takeButton);
 
-                const dropButton = document.createElement("button");
-                dropButton.innerText = "Drop";
-                dropButton.addEventListener("click", (e) => {
+                const dropButton = document.createElement('button');
+                dropButton.innerText = 'Drop';
+                dropButton.addEventListener('click', (e) => {
                     drop();
                 });
                 game.appendChild(dropButton);
 
                 // Check if there are awards to grant!
-                const awardsTitle = document.createElement("div");
-                awardsTitle.id = "awardsTitle";
-                awardsTitle.innerText = "Awards";
+                const awardsTitle = document.createElement('div');
+                awardsTitle.id = 'awardsTitle';
+                awardsTitle.innerText = 'Awards';
                 game.appendChild(awardsTitle);
                 for (let p of state.Players) {
-                    const award = document.createElement("div");
-                    award.classList.add("award");
-                    award.innerText = `Player ${p.Id}: Scopas: ${p.Scopas}, Awards: ${p.Awards ? p.Awards.join() : ""}`;
+                    const award = document.createElement('div');
+                    award.classList.add('award');
+                    award.innerText = `Player ${p.Id}: Scopas: ${p.Scopas}, Awards: ${p.Awards ? p.Awards.join() : ''}`;
                     game.appendChild(award);
                 }
 
                 // What's this player's ID? (1 or 2?)
-                const player = document.createElement("div");
+                const player = document.createElement('div');
                 player.innerText = playerID;
-                player.classList.add("player");
+                player.classList.add('player');
                 game.appendChild(player);
             }
 
             function lastMove(move) {
                 function name(card) {
                     if (card.Suit === 1 && card.Value == 7) {
-                        return "Settebello";
+                        return 'Settebello';
                     }
-                    const { Suit, Value } = card;
+                    const {Suit, Value} = card;
                     const suites = {
-                        1: "Denari",
-                        2: "Coppe",
-                        3: "Bastoni",
-                        4: "Spade",
+                        1: 'Denari',
+                        2: 'Coppe',
+                        3: 'Bastoni',
+                        4: 'Spade',
                     };
                     const values = {
-                        1: "1",
-                        2: "2",
-                        3: "3",
-                        4: "4",
-                        5: "5",
-                        6: "6",
-                        7: "7",
-                        8: "Fante",
-                        9: "Cavallo",
-                        10: "Re",
+                        1: '1',
+                        2: '2',
+                        3: '3',
+                        4: '4',
+                        5: '5',
+                        6: '6',
+                        7: '7',
+                        8: 'Fante',
+                        9: 'Cavallo',
+                        10: 'Re',
                     };
                     return `${values[Value]} di ${suites[Suit]}`;
                 }
 
                 function names(cards) {
-                    return cards.map(name).join(", ");
+                    return cards.map(name).join(', ');
                 }
 
                 if (move.Drop) {
-                    const { PlayerID, Card } = move.Drop;
+                    const {PlayerID, Card} = move.Drop;
                     return `Player ${PlayerID} dropped the ${name(Card)}`;
                 } else if (move.Take) {
-                    const { PlayerID, Card, Table } = move.Take;
+                    const {PlayerID, Card, Table} = move.Take;
                     return `Player ${PlayerID} took the ${names(Table)} with their ${name(Card)}`;
                 }
-                return "";
+                return '';
             }
 
-            // If
+            function init() {
+                // Get the url for the page, but make the protocol ws:// or wss:// as needed.
+                const wsUrl = new URL('/join', document.location.href); // Works for localhost, ip, and domain.
+                wsUrl.protocol = wsUrl.protocol.replace('http', 'ws'); // Also works for https -> wss
 
-            // Get the url for the page, but make the protocol ws:// or wss:// as needed.
-            const wsUrl = new URL("/join", document.location.href); // Works for localhost, ip, and domain.
-            wsUrl.protocol = wsUrl.protocol.replace("http", "ws"); // Also works for https -> wss
+                // Pass in any known state.
+                wsUrl.searchParams.append('PlayerID', window.localStorage.getItem('PlayerID'));
+                wsUrl.searchParams.append('MatchID', window.localStorage.getItem('MatchID'));
+                wsUrl.searchParams.append('Nickname', window.localStorage.getItem('Nickname'));
 
-            // Pass in any known state.
-            wsUrl.searchParams.append("PlayerID", window.localStorage.getItem("PlayerID"));
-            wsUrl.searchParams.append("MatchId", window.localStorage.getItem("MatchId"));
-
-            // Get streaming updates for game's states.
-            const ws = new WebSocket(wsUrl);
-            ws.addEventListener("message", (e) => {
-                let data = JSON.parse(e.data);
-                switch (data.Type) {
-                    case "INIT":
-                        playerID = data.PlayerID;
-                        window.localStorage.setItem("PlayerID", data.PlayerID);
-                        window.localStorage.setItem("MatchId", data.MatchId);
-                        break;
-                    case "STATE":
-                        renderState(data.State);
-                        break;
-                    default:
-                        console.log("Can't handle", data);
-                }
-            });
+                // Get streaming updates for game's states.
+                const ws = new WebSocket(wsUrl);
+                ws.addEventListener('message', (e) => {
+                    let data = JSON.parse(e.data);
+                    var d = {};
+                    d['Message'] = showDialog;
+                    d['Nicknames'] = (n) => {
+                        nicknames = n;
+                        renderScorecard();
+                    };
+                    d['State'] = renderState;
+                    d['MatchID'] = (m) => window.localStorage.setItem('MatchID', m);
+                    d['PlayerID'] = (p) => {
+                        playerID = p;
+                        window.localStorage.setItem('PlayerID', p);
+                    };
+                    d['Scorecard'] = renderScorecard;
+                    for (var key in data) {
+                        if (d.hasOwnProperty(key)) {
+                            d[key](data[key]);
+                        } else {
+                            console.log("Don't know how to handle key: " + key);
+                        }
+                    }
+                });
+            }
 
             // From: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
             async function post(url, data) {
                 const response = await fetch(url, {
-                    method: "POST",
-                    mode: "same-origin",
+                    method: 'POST',
+                    mode: 'same-origin',
                     headers: {
-                        "Content-Type": "application/json",
+                        'Content-Type': 'application/json',
                     },
-                    redirect: "error",
+                    redirect: 'error',
                     body: JSON.stringify(data),
                 });
                 const body = await response.text();
@@ -297,9 +394,9 @@
             async function take(cardIndex, tableIndicies) {
                 const playerCard = cardIndex ? globalState.Players[playerID - 1].Hand[cardIndex] : globalPlayerSelected;
                 const tableCards = tableIndicies ? tableIndicies.map((i) => globalState.Table[i]) : globalTableSelected;
-                const result = await post("/take", { PlayerID: playerID, Card: playerCard, Table: tableCards });
-                if ("Message" in result) {
-                    alert(result.Message);
+                const result = await post('/take', {PlayerID: playerID, Card: playerCard, Table: tableCards});
+                if ('Message' in result) {
+                    showDialog(result.Message);
                 }
             }
 
@@ -307,18 +404,37 @@
             // cardIndex int - the index of the card to drop.
             async function drop(cardIndex) {
                 const playerCard = cardIndex ? globalState.Players[playerID - 1].Hand[cardIndex] : globalPlayerSelected;
-                const result = await post("/drop", { PlayerID: playerID, Card: playerCard });
-                if ("Message" in result) {
-                    alert(result.Message);
+                const result = await post('/drop', {PlayerID: playerID, Card: playerCard});
+                if ('Message' in result) {
+                    showDialog(result.Message);
                 }
             }
 
             async function newGame() {
-                await post("/reset");
+                await post('/reset');
                 location.reload();
             }
+
+            function showDialog(message) {
+                document.querySelector('#message').innerHTML = message;
+                document.querySelector('#message_dialog').showModal();
+            }
+
+            var nickname = window.localStorage.getItem('Nickname');
+            if (!nickname) {
+                const dialog = document.querySelector('#nickname_dialog');
+                dialog.addEventListener('close', () => {
+                    window.localStorage.setItem('Nickname', document.querySelector('#nickname').value);
+                    init();
+                });
+                dialog.showModal();
+            } else {
+                init();
+            }
+
+            document.querySelector('#message_dialog_close').addEventListener('click', () => {
+                document.querySelector('#message_dialog').close();
+            });
         </script>
-        <div id="game"></div>
-        <button onclick="newGame()">New Game</button>
     </body>
 </html>
