@@ -13,7 +13,9 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -113,6 +115,15 @@ func (m *Match) join(playerID int, matchID int64, nick string) (int, chan struct
 	return playerID, updateChan, nil
 }
 
+func (m Match) scorecardKey() string {
+	s := make([]string, 0)
+	for _, p := range m.players {
+		s = append(s, p.nick)
+	}
+	sort.Strings(s)
+	return strings.Join(s, "|")
+}
+
 func parseRequestJSON(w http.ResponseWriter, r *http.Request, v interface{}) bool {
 	c, err := strconv.Atoi(r.Header["Content-Length"][0])
 	if err != nil {
@@ -136,6 +147,16 @@ func parseRequestJSON(w http.ResponseWriter, r *http.Request, v interface{}) boo
 	return true
 }
 
+func (m Match) endTurn() {
+	m.logs = append(m.logs, fmt.Sprintf("state: %#v\n", m.state))
+
+	// Update all of the clients, that there is some new state.
+	for _, p := range m.players {
+		var s struct{}
+		p.client <- s
+	}
+}
+
 func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\nBuilt at version: %s\n", os.Args[0], gitCommit)
@@ -147,6 +168,7 @@ func main() {
 	}
 
 	match := newMatch()
+	scorecards := make(map[string]map[string]int)
 
 	// Serve resources for testing.
 	http.Handle("/", http.FileServer(http.Dir("./web")))
@@ -234,6 +256,17 @@ func main() {
 		for i, p := range match.players {
 			init.Nicknames[i+1] = p.nick
 		}
+
+		x := struct {
+			Scorecard map[string]int
+		}{
+			scorecards[match.scorecardKey()],
+		}
+		if err := websocket.JSON.Send(ws, x); err != nil {
+			io.WriteString(ws, errorJSON("Failed to send the Scorecard message."))
+			return
+		}
+
 		if err := websocket.JSON.Send(ws, init); err != nil {
 			io.WriteString(ws, errorJSON("Failed to send the INIT message."))
 			return
@@ -242,10 +275,7 @@ func main() {
 		// Push the initial state, then keep pushing the full state with every change.
 		for {
 			// Push the match state
-			s := update{
-				State: match.state,
-			}
-			if err := websocket.JSON.Send(ws, s); err != nil {
+			if err := websocket.JSON.Send(ws, update{State: match.state}); err != nil {
 				io.WriteString(ws, errorJSON(fmt.Sprintf("state json send error: %#v", err)))
 				return
 			}
@@ -284,13 +314,14 @@ func main() {
 			return
 		}
 		match.logs = append(match.logs, fmt.Sprintf("drop: %#v\n", d.Card))
-		match.logs = append(match.logs, fmt.Sprintf("state: %#v\n", match.state))
-
-		// Update all of the clients, that there is some new state.
-		for _, p := range match.players {
-			var s struct{}
-			p.client <- s
+		if match.state.Ended() {
+			for i, p := range match.players {
+				sp := match.state.Players[i]
+				scorecards[match.scorecardKey()] = map[string]int{}
+				scorecards[match.scorecardKey()][p.nick] += len(sp.Awards) + sp.Scopas
+			}
 		}
+		match.endTurn()
 	})
 
 	http.HandleFunc("/take", func(w http.ResponseWriter, r *http.Request) {
@@ -324,13 +355,14 @@ func main() {
 		}
 
 		match.logs = append(match.logs, fmt.Sprintf("take: %#v, %#v\n", t.Card, t.Table))
-		match.logs = append(match.logs, fmt.Sprintf("state: %#v\n", match.state))
-
-		// Update all of the clients, that there is some new state.
-		for _, p := range match.players {
-			var s struct{}
-			p.client <- s
+		if match.state.Ended() {
+			for i, p := range match.players {
+				sp := match.state.Players[i]
+				scorecards[match.scorecardKey()] = map[string]int{}
+				scorecards[match.scorecardKey()][p.nick] += len(sp.Awards) + sp.Scopas
+			}
 		}
+		match.endTurn()
 	})
 
 	if *httpsHost != "" {

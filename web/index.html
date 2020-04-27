@@ -10,6 +10,41 @@
                 margin: 0px;
             }
 
+            :root {
+                --scorecard-color: #4e4e4e;
+            }
+
+            #scorecard {
+                position: absolute;
+                border-collapse: collapse;
+                width: 150px;
+                margin: 5px;
+                top: 30px;
+                color: var(--scorecard-color);
+            }
+
+            #scorecard thead tr {
+                border-bottom: 2px solid var(--scorecard-color);
+            }
+
+            #scorecard thead td:first-child {
+                border-right: 1px solid var(--scorecard-color);
+            }
+
+            #scorecard tbody {
+                vertical-align: top;
+                font-weight: bolder;
+                font-size: large;
+            }
+
+            #scorecard tbody tr {
+                height: 100px;
+            }
+
+            #scorecard tbody td:first-child {
+                border-right: 1px solid var(--scorecard-color);
+            }
+
             #game {
                 background-color: antiquewhite;
                 transition: background-color 2s ease;
@@ -28,6 +63,7 @@
             }
 
             #lastMove {
+                color: var(--scorecard-color);
                 font-style: italic;
                 padding-bottom: 20px;
                 min-height: 20px;
@@ -71,6 +107,18 @@
         </style>
     </head>
     <body>
+        <table id="scorecard">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tr>
+                <td></td>
+                <td></td>
+            </tr>
+        </table>
         <div id="game"></div>
         <button onclick="newGame()">New Game</button>
         <dialog id="nickname_dialog">
@@ -102,6 +150,31 @@
 
             // Contains the latest move
             var globalLatestMove = '';
+
+            function renderScorecard(scorecard) {
+                const tallies = (times) => {
+                    let r = '';
+                    for (let i = 0; i < times; i++) {
+                        r += '|';
+                    }
+                    return r;
+                };
+
+                if (nicknames) {
+                    for (let n of Object.keys(nicknames)) {
+                        document.querySelector(`#scorecard th:nth-child(${n})`).innerText = nicknames[n];
+                    }
+                }
+
+                if (!scorecard) return;
+                const players = Object.keys(scorecard).sort();
+                for (var x = 0; x < players.length; x++) {
+                    var score = scorecard[players[x]];
+                    document.querySelector(`#scorecard th:nth-child(${x + 1})`).innerText = players[x];
+                    document.querySelector(`#scorecard td:nth-child(${x + 1})`).innerText =
+                        tallies(score) + ` (${score})`;
+                }
+            }
 
             function renderCard(suite, value) {
                 const card = document.createElement('div');
@@ -144,7 +217,7 @@
                     turn.innerHTML = 'Your turn';
                     game.classList.add('activeTurn');
                 } else {
-                    turn.innerHTML = `${nicknames[state.NextPlayer]}'s turn`;
+                    turn.innerHTML = `Waiting for ${nicknames[state.NextPlayer]}`;
                 }
                 game.appendChild(turn);
 
@@ -277,6 +350,7 @@
                     d['Message'] = showDialog;
                     d['Nicknames'] = (n) => {
                         nicknames = n;
+                        renderScorecard();
                     };
                     d['State'] = renderState;
                     d['MatchID'] = (m) => window.localStorage.setItem('MatchID', m);
@@ -284,6 +358,7 @@
                         playerID = p;
                         window.localStorage.setItem('PlayerID', p);
                     };
+                    d['Scorecard'] = renderScorecard;
                     for (var key in data) {
                         if (d.hasOwnProperty(key)) {
                             d[key](data[key]);

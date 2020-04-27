@@ -344,16 +344,14 @@ func Primera(p1, p2 *Player) {
 	}
 }
 
-func (s *State) EndTurn() error {
+func (s *State) endTurn() error {
 	// Move the turn to the next player.
 	s.NextPlayer++
 	if s.NextPlayer > len(s.Players) {
 		s.NextPlayer = 1
 	}
 
-	// Check if this was actually the end of the game...
-	if len(s.Deck) == 0 && s.EmptyHands() {
-
+	if s.Ended() {
 		// Give the player that last took cards, the remaining cards on the table.
 		g := &s.Players[s.LastPlayerToTake-1]
 		g.Grabbed = append(g.Grabbed, s.Table...)
@@ -447,7 +445,7 @@ func (s *State) Take(card Card, table []Card) error {
 
 	s.LastPlayerToTake = p.Id
 	s.LastMove = move{Take: &take{s.NextPlayer, card, table}}
-	return s.EndTurn()
+	return s.endTurn()
 }
 
 func (s *State) Drop(card Card) error {
@@ -472,5 +470,13 @@ func (s *State) Drop(card Card) error {
 	s.Table = append(s.Table, card)
 	s.LastMove = move{Drop: &drop{s.NextPlayer, card}}
 
-	return s.EndTurn()
+	return s.endTurn()
+}
+
+// Ended is true if the game has ended and there are no more moves.
+func (s State) Ended() bool {
+	if len(s.Deck) > 0 {
+		return false
+	}
+	return s.EmptyHands()
 }
