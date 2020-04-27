@@ -234,12 +234,14 @@ func main() {
 		}
 
 		m := struct {
-			MatchID int64
+			MatchID  int64
+			PlayerID int
 		}{
 			match.ID,
+			playerID,
 		}
 		if err := websocket.JSON.Send(ws, m); err != nil {
-			io.WriteString(ws, errorJSON("Failed to send the MATCHID message."))
+			io.WriteString(ws, errorJSON("Failed to send the MatchID/PlayerID message."))
 			return
 		}
 
@@ -247,10 +249,8 @@ func main() {
 		<-match.gameStart
 
 		init := struct {
-			PlayerID  int
 			Nicknames map[int]string
 		}{
-			playerID,
 			make(map[int]string),
 		}
 		for i, p := range match.players {

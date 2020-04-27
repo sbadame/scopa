@@ -99,14 +99,32 @@
                 transform-origin: center 30px;
                 display: flex;
                 justify-content: center;
+                margin-top: 20px;
             }
 
             #hand .cards {
                 transform-origin: inherit;
             }
+
+            #hand .cards:nth-child(2) {
+                z-index: 1;
+                position: relative;
+                top: -15px;
+            }
+
+            #waiting_dialog::backdrop {
+                background-color: antiquewhite;
+            }
+
+            #nickname_dialog::backdrop {
+                background-color: antiquewhite;
+            }
         </style>
     </head>
     <body>
+        <dialog id="waiting_dialog">
+            <p>Waiting for another player to join.</p>
+        </dialog>
         <table id="scorecard">
             <thead>
                 <tr>
@@ -246,10 +264,7 @@
                 for (let t of state.Players[playerID - 1].Hand) {
                     let c = renderCard(t.Suit, t.Value);
                     c.style.transform = `rotate(${i * 20 - 20}deg)`;
-                    if (i === 1) {
-                        c.style.zIndex = 1;
-                    }
-                    c.addEventListener('click', (e) => {
+                    c.addEventListener('click', () => {
                         globalPlayerSelected = t;
                     });
                     hand.appendChild(c);
@@ -273,22 +288,16 @@
                 game.appendChild(dropButton);
 
                 // Check if there are awards to grant!
-                const awardsTitle = document.createElement('div');
-                awardsTitle.id = 'awardsTitle';
-                awardsTitle.innerText = 'Awards';
-                game.appendChild(awardsTitle);
                 for (let p of state.Players) {
                     const award = document.createElement('div');
                     award.classList.add('award');
-                    award.innerText = `Player ${p.Id}: Scopas: ${p.Scopas}, Awards: ${p.Awards ? p.Awards.join() : ''}`;
+                    award.innerText = `${nicknames[p.Id]}: Scopas: ${p.Scopas}, Awards: ${
+                        p.Awards ? p.Awards.join() : ''
+                    }`;
                     game.appendChild(award);
                 }
 
-                // What's this player's ID? (1 or 2?)
-                const player = document.createElement('div');
-                player.innerText = playerID;
-                player.classList.add('player');
-                game.appendChild(player);
+                document.querySelector('#waiting_dialog').close();
             }
 
             function lastMove(move) {
@@ -353,7 +362,10 @@
                         renderScorecard();
                     };
                     d['State'] = renderState;
-                    d['MatchID'] = (m) => window.localStorage.setItem('MatchID', m);
+                    d['MatchID'] = (m) => {
+                        window.localStorage.setItem('MatchID', m);
+                        document.querySelector('#waiting_dialog').showModal();
+                    };
                     d['PlayerID'] = (p) => {
                         playerID = p;
                         window.localStorage.setItem('PlayerID', p);
