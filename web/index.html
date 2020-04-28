@@ -125,7 +125,6 @@
                 padding: 3px 15px;
                 border-radius: 7px;
                 border-width: 2px;
-                transition: all 0.5s;
             }
 
             #action button:enabled {
@@ -419,6 +418,12 @@
                 });
             }
 
+            async function getMatchId() {
+                return await fetch('/matchID')
+                    .then((r) => r.json())
+                    .then((r) => r.MatchID);
+            }
+
             // From: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
             async function post(url, data) {
                 const response = await fetch(url, {
@@ -474,20 +479,23 @@
                 }
             });
 
-            var nickname = window.localStorage.getItem('Nickname');
-            if (!nickname) {
-                const dialog = document.querySelector('#nickname_dialog');
-                dialog.addEventListener('close', () => {
-                    window.localStorage.setItem('Nickname', document.querySelector('#nickname').value);
-                    init();
-                });
-                dialog.showModal();
-            } else {
-                init();
-            }
-
             document.querySelector('#message_dialog_close').addEventListener('click', () => {
                 document.querySelector('#message_dialog').close();
+            });
+
+            // If the matchID stored locally doesn't match the server's then ask for a new nickname.
+            getMatchId().then((matchID) => {
+                if (matchID.toString() !== window.localStorage.getItem('MatchID')) {
+                    const dialog = document.querySelector('#nickname_dialog');
+                    document.querySelector('#nickname').value = window.localStorage.getItem('Nickname');
+                    dialog.addEventListener('close', () => {
+                        window.localStorage.setItem('Nickname', document.querySelector('#nickname').value);
+                        init();
+                    });
+                    dialog.showModal();
+                } else {
+                    init();
+                }
             });
         </script>
     </body>

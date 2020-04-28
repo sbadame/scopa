@@ -361,6 +361,12 @@ func main() {
 		match.endTurn(scorecards)
 	})
 
+	http.HandleFunc("/matchID", func(w http.ResponseWriter, r *http.Request) {
+		match.Lock()
+		defer match.Unlock()
+		io.WriteString(w, fmt.Sprintf(`{"MatchID": %d}`, match.ID))
+	})
+
 	if *httpsHost != "" {
 		// Still create an http server, but make it always redirect to https
 		s := http.Server{
