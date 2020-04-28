@@ -112,12 +112,35 @@
                 top: -15px;
             }
 
-            #waiting_dialog, #nickname_dialog {
+            #action {
+                display: flex;
+                justify-content: center;
+            }
+
+            #action button {
+                font-size: 1.2em;
+                font-family: serif;
+                font-variant: all-caps;
+                border: solid black;
+                padding: 3px 15px;
+                border-radius: 7px;
+                border-width: 2px;
+                transition: all 0.5s;
+                box-shadow: 3px 3px 7px rgba(0, 0, 0, 0.3);
+            }
+
+            #action button:enabled {
+                background-color: white;
+            }
+
+            #waiting_dialog,
+            #nickname_dialog {
                 border-radius: 7px;
                 border-width: 3px;
             }
 
-            #waiting_dialog::backdrop, #nickname_dialog::backdrop {
+            #waiting_dialog::backdrop,
+            #nickname_dialog::backdrop {
                 background-color: #d5ab24;
             }
         </style>
@@ -165,7 +188,7 @@
             var globalTableSelected = [];
 
             // Contains the card values that the player has selected from their hand.
-            var globalPlayerSelected = null;
+            var globalPlayerSelected = [];
 
             // Contains the latest move
             var globalLatestMove = '';
@@ -195,6 +218,18 @@
                 }
             }
 
+            function updateActionButton() {
+                const b = document.querySelector('#action_button');
+                if (globalTableSelected.length === 0) {
+                    b.onclick = drop;
+                    b.innerText = 'Drop';
+                } else {
+                    b.onclick = take;
+                    b.innerText = 'Take';
+                }
+                b.disabled = false;
+            }
+
             function renderCard(suite, value) {
                 const card = document.createElement('div');
                 card.className = 'cards';
@@ -202,9 +237,6 @@
                 card.style.backgroundPositionY = `-${(suite - 1) * 170}px`;
                 card.dataset.value = value;
                 card.dataset.suite = suite;
-                card.addEventListener('click', (e) => {
-                    e.target.classList.toggle('selected');
-                });
                 return card;
             }
 
@@ -247,12 +279,14 @@
                 for (let t of state.Table) {
                     let c = renderCard(t.Suit, t.Value);
                     c.addEventListener('click', (e) => {
+                        e.target.classList.toggle('selected');
                         let i = globalTableSelected.indexOf(t);
                         if (i == -1) {
                             globalTableSelected.push(t);
                         } else {
                             globalTableSelected.splice(i, 1);
                         }
+                        updateActionButton();
                     });
                     tableDiv.appendChild(c);
                 }
@@ -265,28 +299,31 @@
                 for (let t of state.Players[playerID - 1].Hand) {
                     let c = renderCard(t.Suit, t.Value);
                     c.style.transform = `rotate(${i * 20 - 20}deg)`;
-                    c.addEventListener('click', () => {
+                    c.addEventListener('click', (d) => {
+                        document.querySelectorAll('#hand .selected').forEach((e) => e.classList.remove('selected'));
+                        d.target.classList.add('selected');
                         globalPlayerSelected = t;
+                        updateActionButton();
                     });
                     hand.appendChild(c);
                     i++;
                 }
                 game.appendChild(hand);
 
-                // Give the player options...
-                const takeButton = document.createElement('button');
-                takeButton.innerText = 'Take';
-                takeButton.addEventListener('click', (e) => {
-                    take();
-                });
-                game.appendChild(takeButton);
+                // Give the player a action button.
+                const action = document.createElement('button');
+                action.setAttribute('id', 'action_button');
+                if (playerID === state.NextPlayer) {
+                    action.innerText = 'Select a card.';
+                } else {
+                    action.innerText = 'Wait your turn...';
+                }
+                action.disabled = true; // Cards to need to be selected before any action can be taken.
 
-                const dropButton = document.createElement('button');
-                dropButton.innerText = 'Drop';
-                dropButton.addEventListener('click', (e) => {
-                    drop();
-                });
-                game.appendChild(dropButton);
+                const wrapper = document.createElement('div');
+                wrapper.id = 'action';
+                wrapper.appendChild(action);
+                game.appendChild(wrapper);
 
                 // Check if there are awards to grant!
                 for (let p of state.Players) {
@@ -401,23 +438,21 @@
                 }
             }
 
-            // Take the chosen cards
-            // cardIndex int - the index of the card to drop.
-            // tableIndicies int[] - the list of the indicies from the table to pickup.
-            async function take(cardIndex, tableIndicies) {
-                const playerCard = cardIndex ? globalState.Players[playerID - 1].Hand[cardIndex] : globalPlayerSelected;
-                const tableCards = tableIndicies ? tableIndicies.map((i) => globalState.Table[i]) : globalTableSelected;
-                const result = await post('/take', {PlayerID: playerID, Card: playerCard, Table: tableCards});
+            // Take the selected cards
+            async function take() {
+                const result = await post('/take', {
+                    PlayerID: playerID,
+                    Card: globalPlayerSelected,
+                    Table: globalTableSelected,
+                });
                 if ('Message' in result) {
                     showDialog(result.Message);
                 }
             }
 
-            // Drop the chosen card
-            // cardIndex int - the index of the card to drop.
-            async function drop(cardIndex) {
-                const playerCard = cardIndex ? globalState.Players[playerID - 1].Hand[cardIndex] : globalPlayerSelected;
-                const result = await post('/drop', {PlayerID: playerID, Card: playerCard});
+            // Drop the selected card
+            async function drop() {
+                const result = await post('/drop', {PlayerID: playerID, Card: globalPlayerSelected});
                 if ('Message' in result) {
                     showDialog(result.Message);
                 }
@@ -432,6 +467,12 @@
                 document.querySelector('#message').innerHTML = message;
                 document.querySelector('#message_dialog').showModal();
             }
+
+            window.addEventListener('keyup', (e) => {
+                if (e.code === 'Enter') {
+                    document.querySelector('#action_button').click();
+                }
+            });
 
             var nickname = window.localStorage.getItem('Nickname');
             if (!nickname) {
