@@ -147,8 +147,18 @@ func parseRequestJSON(w http.ResponseWriter, r *http.Request, v interface{}) boo
 	return true
 }
 
-func (m Match) endTurn() {
+func (m Match) endTurn(s map[string]map[string]int) {
 	m.logs = append(m.logs, fmt.Sprintf("state: %#v\n", m.state))
+
+	if m.state.Ended() {
+		for i, p := range m.players {
+			sp := m.state.Players[i]
+			if _, present := s[m.scorecardKey()]; !present {
+				s[m.scorecardKey()] = map[string]int{}
+			}
+			s[m.scorecardKey()][p.nick] += len(sp.Awards) + sp.Scopas
+		}
+	}
 
 	// Update all of the clients, that there is some new state.
 	for _, p := range m.players {
@@ -314,14 +324,7 @@ func main() {
 			return
 		}
 		match.logs = append(match.logs, fmt.Sprintf("drop: %#v\n", d.Card))
-		if match.state.Ended() {
-			for i, p := range match.players {
-				sp := match.state.Players[i]
-				scorecards[match.scorecardKey()] = map[string]int{}
-				scorecards[match.scorecardKey()][p.nick] += len(sp.Awards) + sp.Scopas
-			}
-		}
-		match.endTurn()
+		match.endTurn(scorecards)
 	})
 
 	http.HandleFunc("/take", func(w http.ResponseWriter, r *http.Request) {
@@ -355,14 +358,7 @@ func main() {
 		}
 
 		match.logs = append(match.logs, fmt.Sprintf("take: %#v, %#v\n", t.Card, t.Table))
-		if match.state.Ended() {
-			for i, p := range match.players {
-				sp := match.state.Players[i]
-				scorecards[match.scorecardKey()] = map[string]int{}
-				scorecards[match.scorecardKey()][p.nick] += len(sp.Awards) + sp.Scopas
-			}
-		}
-		match.endTurn()
+		match.endTurn(scorecards)
 	})
 
 	if *httpsHost != "" {
