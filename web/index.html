@@ -370,10 +370,10 @@
 
                 if (move.Drop) {
                     const {PlayerID, Card} = move.Drop;
-                    return `Player ${PlayerID} dropped the ${name(Card)}`;
+                    return `${nicknames[PlayerID]} dropped the ${name(Card)}`;
                 } else if (move.Take) {
                     const {PlayerID, Card, Table} = move.Take;
-                    return `Player ${PlayerID} took the ${names(Table)} with their ${name(Card)}`;
+                    return `${nicknames[PlayerID]} took the ${names(Table)} with their ${name(Card)}`;
                 }
                 return '';
             }
@@ -384,7 +384,6 @@
                 wsUrl.protocol = wsUrl.protocol.replace('http', 'ws'); // Also works for https -> wss
 
                 // Pass in any known state.
-                wsUrl.searchParams.append('PlayerID', window.localStorage.getItem('PlayerID'));
                 wsUrl.searchParams.append('MatchID', window.localStorage.getItem('MatchID'));
                 wsUrl.searchParams.append('Nickname', window.localStorage.getItem('Nickname'));
 
@@ -405,7 +404,6 @@
                     };
                     d['PlayerID'] = (p) => {
                         playerID = p;
-                        window.localStorage.setItem('PlayerID', p);
                     };
                     d['Scorecard'] = renderScorecard;
                     for (var key in data) {

@@ -265,14 +265,6 @@ func main() {
 
 		var err error
 
-		// playerID := 0
-		// if pid := ws.Request().FormValue("PlayerID"); pid != "" && pid != "null" && pid != "undefined" {
-		// 	if playerID, err = strconv.Atoi(pid); err != nil {
-		// 		errorf("PlayerID has an invalid value: %s", err)
-		// 		return
-		// 	}
-		// }
-
 		matchID := int64(0)
 		if mid := ws.Request().FormValue("MatchID"); mid != "" && mid != "null" && mid != "undefined" {
 			if matchID, err = strconv.ParseInt(mid, 10, 64); err != nil {
