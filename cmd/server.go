@@ -81,38 +81,53 @@ func newMatch() Match {
 	return m
 }
 
-func (m *Match) join(playerID int, matchID int64, nick string) (int, chan struct{}, error) {
+func (m *Match) join(matchID int64, nick string, sb scoreboard) (chan struct{}, error) {
 	m.Lock()
 	defer m.Unlock()
 
-	// If the matchIDs are equal, assume that someone is rejoining.
-	if playerID != 0 && matchID == m.ID {
-		c := make(chan struct{}, 1000)
-		m.players[playerID-1].client = c
-		return playerID, c, nil
+	if matchID == m.ID {
+		for _, p := range m.players {
+			if p.nick == nick {
+				p.client = make(chan struct{}, 1000)
+				return p.client, nil
+			}
+		}
 	}
 
 	// Keep track of the number of players that have "joined".
 	// Give them a player id.
 	if len(m.players) >= 2 {
-		return -1, nil, fmt.Errorf("match is full")
+		return nil, fmt.Errorf("match is full")
 	}
 
 	for _, p := range m.players {
 		if p.nick == nick {
-			return -1, nil, fmt.Errorf("nickname %s is already taken", nick)
+			return nil, fmt.Errorf("nickname %s is already taken", nick)
 		}
 	}
 
 	updateChan := make(chan struct{}, 1000)
 	m.players = append(m.players, player{updateChan, nick})
-	playerID = len(m.players)
 
 	if len(m.players) == 2 {
+		// Now that we have all of the players, check if these two have played before, and if yes, who goes
+		// first?
+		n := sb.nextPlayer(m.players[0].nick, m.players[1].nick)
+		if m.players[0].nick != n {
+			m.players[0], m.players[1] = m.players[1], m.players[0]
+		}
 		close(m.gameStart) // Broadcast that the game is ready to start to all clients.
 	}
+	return updateChan, nil
+}
 
-	return playerID, updateChan, nil
+func (m Match) playerID(nick string) int {
+	for i, p := range m.players {
+		if p.nick == nick {
+			return i + 1
+		}
+	}
+	return -1
 }
 
 func (m Match) scorecardKey() string {
@@ -122,6 +137,43 @@ func (m Match) scorecardKey() string {
 	}
 	sort.Strings(s)
 	return strings.Join(s, "|")
+}
+
+type scoreboard map[string]scorecard
+
+type scorecard struct {
+	scores     map[string]int
+	nextPlayer string
+}
+
+func scorekey(aNick, bNick string) string {
+	n := []string{aNick, bNick}
+	sort.Strings(n)
+	return strings.Join(n, "|")
+}
+
+func (sb scoreboard) scores(aNick, bNick string) map[string]int {
+	return sb[scorekey(aNick, bNick)].scores
+}
+
+func (sb scoreboard) record(aNick, bNick string, aScore, bScore int) {
+	np := sb.nextPlayer(aNick, bNick)
+	key := scorekey(aNick, bNick)
+	if _, ok := sb[key]; !ok {
+		sb[key] = scorecard{make(map[string]int), ""}
+	}
+
+	s, _ := sb[key]
+	s.scores[aNick] += aScore
+	s.scores[bNick] += bScore
+	s.nextPlayer = np
+}
+
+func (sb scoreboard) nextPlayer(aNick, bNick string) string {
+	if v, ok := sb[scorekey(aNick, bNick)]; ok {
+		return v.nextPlayer
+	}
+	return aNick
 }
 
 func parseRequestJSON(w http.ResponseWriter, r *http.Request, v interface{}) bool {
@@ -147,17 +199,15 @@ func parseRequestJSON(w http.ResponseWriter, r *http.Request, v interface{}) boo
 	return true
 }
 
-func (m Match) endTurn(s map[string]map[string]int) {
+func (m Match) endTurn(sb scoreboard) {
 	m.logs = append(m.logs, fmt.Sprintf("state: %#v\n", m.state))
 
 	if m.state.Ended() {
-		for i, p := range m.players {
-			sp := m.state.Players[i]
-			if _, present := s[m.scorecardKey()]; !present {
-				s[m.scorecardKey()] = map[string]int{}
-			}
-			s[m.scorecardKey()][p.nick] += len(sp.Awards) + sp.Scopas
-		}
+		// Record the scores.
+		p1, p2 := m.state.Players[0], m.state.Players[1]
+		a1, a2 := len(p1.Awards)+p1.Scopas, len(p2.Awards)+p2.Scopas
+		n1, n2 := m.players[0].nick, m.players[1].nick
+		sb.record(n1, n2, a1, a2)
 	}
 
 	// Update all of the clients, that there is some new state.
@@ -178,7 +228,7 @@ func main() {
 	}
 
 	match := newMatch()
-	scorecards := make(map[string]map[string]int)
+	sb := make(scoreboard)
 
 	// Serve resources.
 	http.Handle("/", http.FileServer(http.Dir("./web")))
@@ -215,13 +265,13 @@ func main() {
 
 		var err error
 
-		playerID := 0
-		if pid := ws.Request().FormValue("PlayerID"); pid != "" && pid != "null" && pid != "undefined" {
-			if playerID, err = strconv.Atoi(pid); err != nil {
-				errorf("PlayerID has an invalid value: %s", err)
-				return
-			}
-		}
+		// playerID := 0
+		// if pid := ws.Request().FormValue("PlayerID"); pid != "" && pid != "null" && pid != "undefined" {
+		// 	if playerID, err = strconv.Atoi(pid); err != nil {
+		// 		errorf("PlayerID has an invalid value: %s", err)
+		// 		return
+		// 	}
+		// }
 
 		matchID := int64(0)
 		if mid := ws.Request().FormValue("MatchID"); mid != "" && mid != "null" && mid != "undefined" {
@@ -237,21 +287,19 @@ func main() {
 			return
 		}
 
-		playerID, updateChan, err := match.join(playerID, matchID, nick)
+		updateChan, err := match.join(matchID, nick, sb)
 		if err != nil {
 			errorf("%s", err)
 			return
 		}
 
 		m := struct {
-			MatchID  int64
-			PlayerID int
+			MatchID int64
 		}{
 			match.ID,
-			playerID,
 		}
 		if err := websocket.JSON.Send(ws, m); err != nil {
-			io.WriteString(ws, errorJSON("Failed to send the MatchID/PlayerID message."))
+			io.WriteString(ws, errorJSON("Failed to send the MatchID message."))
 			return
 		}
 
@@ -259,26 +307,19 @@ func main() {
 		<-match.gameStart
 
 		init := struct {
+			PlayerID  int
 			Nicknames map[int]string
+			Scorecard map[string]int
 		}{
+			match.playerID(nick),
 			make(map[int]string),
+			sb.scores(match.players[0].nick, match.players[1].nick),
 		}
 		for i, p := range match.players {
 			init.Nicknames[i+1] = p.nick
 		}
-
-		x := struct {
-			Scorecard map[string]int
-		}{
-			scorecards[match.scorecardKey()],
-		}
-		if err := websocket.JSON.Send(ws, x); err != nil {
-			io.WriteString(ws, errorJSON("Failed to send the Scorecard message."))
-			return
-		}
-
 		if err := websocket.JSON.Send(ws, init); err != nil {
-			io.WriteString(ws, errorJSON("Failed to send the INIT message."))
+			io.WriteString(ws, errorJSON("Failed to send the Nicknames/Scorecard messages."))
 			return
 		}
 
@@ -324,7 +365,7 @@ func main() {
 			return
 		}
 		match.logs = append(match.logs, fmt.Sprintf("drop: %#v\n", d.Card))
-		match.endTurn(scorecards)
+		match.endTurn(sb)
 	})
 
 	http.HandleFunc("/take", func(w http.ResponseWriter, r *http.Request) {
@@ -358,7 +399,7 @@ func main() {
 		}
 
 		match.logs = append(match.logs, fmt.Sprintf("take: %#v, %#v\n", t.Card, t.Table))
-		match.endTurn(scorecards)
+		match.endTurn(sb)
 	})
 
 	http.HandleFunc("/matchID", func(w http.ResponseWriter, r *http.Request) {
