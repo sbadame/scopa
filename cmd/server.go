@@ -9,6 +9,7 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/websocket"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -21,10 +22,11 @@ import (
 )
 
 var (
-	httpPort  = flag.Int("http_port", 8080, "The port to listen on for http requests.")
-	random    = flag.Bool("random", false, "When set to true, actually uses a random seed.")
-	httpsPort = flag.Int("https_port", 8081, "The port to listen on for https requests.")
-	httpsHost = flag.String("https_host", "", "Set this to the hostname to get a Let's Encrypt SSL certificate for.")
+	httpPort       = flag.Int("http_port", 8080, "The port to listen on for http requests.")
+	random         = flag.Bool("random", false, "When set to true, actually uses a random seed.")
+	httpsPort      = flag.Int("https_port", 8081, "The port to listen on for https requests.")
+	httpsHost      = flag.String("https_host", "", "Set this to the hostname to get a Let's Encrypt SSL certificate for.")
+	scoreboardFile = flag.String("scoreboard_file", "scoreboard.json", "The file to read and write scopa scores to.")
 
 	// Populated at compile time with `go build/run -ldflags "-X main.gitCommit=$(git rev-parse HEAD)"`
 	gitCommit string
@@ -139,11 +141,11 @@ func (m Match) scorecardKey() string {
 	return strings.Join(s, "|")
 }
 
-type scoreboard map[string]scorecard
+type scoreboard map[string]*scorecard
 
 type scorecard struct {
-	scores     map[string]int
-	nextPlayer string
+	Scores     map[string]int
+	NextPlayer string
 }
 
 func scorekey(aNick, bNick string) string {
@@ -153,27 +155,65 @@ func scorekey(aNick, bNick string) string {
 }
 
 func (sb scoreboard) scores(aNick, bNick string) map[string]int {
-	return sb[scorekey(aNick, bNick)].scores
+	return sb[scorekey(aNick, bNick)].Scores
 }
 
 func (sb scoreboard) record(aNick, bNick string, aScore, bScore int) {
-	np := sb.nextPlayer(aNick, bNick)
 	key := scorekey(aNick, bNick)
-	if _, ok := sb[key]; !ok {
-		sb[key] = scorecard{make(map[string]int), ""}
+	s, ok := sb[key]
+	if !ok {
+		// First time these two players have played eachother.
+		// b goes first next time.
+		sb[key] = &scorecard{
+			Scores:     map[string]int{aNick: aScore, bNick: bScore},
+			NextPlayer: bNick,
+		}
+		return
 	}
 
-	s, _ := sb[key]
-	s.scores[aNick] += aScore
-	s.scores[bNick] += bScore
-	s.nextPlayer = np
+	s.Scores[aNick] += aScore
+	s.Scores[bNick] += bScore
+
+	// Match has been recorded, swap the next player...
+	if s.NextPlayer == aNick {
+		s.NextPlayer = bNick
+	} else {
+		s.NextPlayer = aNick
+	}
 }
 
 func (sb scoreboard) nextPlayer(aNick, bNick string) string {
 	if v, ok := sb[scorekey(aNick, bNick)]; ok {
-		return v.nextPlayer
+		return v.NextPlayer
 	}
 	return aNick
+}
+
+func (sb scoreboard) save(filename string) {
+	b, err := json.Marshal(sb)
+	if err != nil {
+		fmt.Printf("Couldn't convert scoreboard to json: %v\n", err)
+		return
+	}
+
+	if err := ioutil.WriteFile(filename, b, 0644); err != nil {
+		fmt.Printf("Couldn't write to %s: %v\n", filename, err)
+	}
+}
+
+func loadScoreboard(f string) scoreboard {
+	sb := make(scoreboard)
+
+	b, err := ioutil.ReadFile(f)
+	if err != nil {
+		fmt.Printf("Couldn't read %s, %v\n", f, err)
+		return sb
+	}
+
+	if err := json.Unmarshal(b, &sb); err != nil {
+		fmt.Printf("Couldn't parse json from %s, %v\n", f, err)
+	}
+	return sb
 }
 
 func parseRequestJSON(w http.ResponseWriter, r *http.Request, v interface{}) bool {
@@ -228,7 +268,8 @@ func main() {
 	}
 
 	match := newMatch()
-	sb := make(scoreboard)
+
+	sb := loadScoreboard(*scoreboardFile)
 
 	// Serve resources.
 	http.Handle("/", http.FileServer(http.Dir("./web")))
@@ -245,6 +286,7 @@ func main() {
 		} else {
 			io.WriteString(w, "Built with an unknown git version (-X main.gitCommit was not set)\n")
 		}
+
 		match.Lock()
 		defer match.Unlock()
 
@@ -358,6 +400,7 @@ func main() {
 		}
 		match.logs = append(match.logs, fmt.Sprintf("drop: %#v\n", d.Card))
 		match.endTurn(sb)
+		sb.save(*scoreboardFile)
 	})
 
 	http.HandleFunc("/take", func(w http.ResponseWriter, r *http.Request) {
