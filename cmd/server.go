@@ -155,7 +155,10 @@ func scorekey(aNick, bNick string) string {
 }
 
 func (sb scoreboard) scores(aNick, bNick string) map[string]int {
-	return sb[scorekey(aNick, bNick)].Scores
+    if v := sb[scorekey(aNick, bNick)]; v != nil {
+	return v.Scores
+    }
+    return map[string]int{}
 }
 
 func (sb scoreboard) record(aNick, bNick string, aScore, bScore int) {
