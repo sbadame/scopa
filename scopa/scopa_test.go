@@ -145,14 +145,3 @@ func TestTake(t *testing.T) {
 		}
 	}
 }
-
-func TestDupe(t *testing.T) {
-	s := State{NextPlayer: 1, LastPlayerToTake: 0, Deck: []Card{Card{Suit: 1, Value: 8}, Card{Suit: 2, Value: 4}, Card{Suit: 4, Value: 4}, Card{Suit: 2, Value: 8}, Card{Suit: 3, Value: 10}, Card{Suit: 2, Value: 10}, Card{Suit: 3, Value: 2}, Card{Suit: 3, Value: 7}, Card{Suit: 3, Value: 3}, Card{Suit: 3, Value: 1}, Card{Suit: 1, Value: 5}, Card{Suit: 2, Value: 5}, Card{Suit: 3, Value: 9}, Card{Suit: 1, Value: 7}, Card{Suit: 2, Value: 2}, Card{Suit: 1, Value: 9}, Card{Suit: 2, Value: 1}, Card{Suit: 4, Value: 3}, Card{Suit: 3, Value: 4}, Card{Suit: 4, Value: 6}, Card{Suit: 1, Value: 10}, Card{Suit: 1, Value: 4}, Card{Suit: 1, Value: 6}, Card{Suit: 1, Value: 3}, Card{Suit: 4, Value: 10}, Card{Suit: 2, Value: 6}, Card{Suit: 2, Value: 7}, Card{Suit: 3, Value: 6}, Card{Suit: 4, Value: 7}, Card{Suit: 3, Value: 5}}, Table: []Card{Card{Suit: 4, Value: 2}, Card{Suit: 4, Value: 5}, Card{Suit: 2, Value: 9}, Card{Suit: 2, Value: 3}}, Players: []Player{Player{Id: 1, Hand: []Card{Card{Suit: 4, Value: 8}, Card{Suit: 4, Value: 1}, Card{Suit: 4, Value: 9}}, Grabbed: []Card(nil), Scopas: 0, Awards: []string(nil)}, Player{Id: 2, Hand: []Card{Card{Suit: 1, Value: 2}, Card{Suit: 1, Value: 1}, Card{Suit: 3, Value: 8}}, Grabbed: []Card(nil), Scopas: 0, Awards: []string(nil)}}, LastMove: move{Drop: (*drop)(nil), Take: (*take)(nil)}}
-	if err := s.Take(Card{Suit: 4, Value: 9}, []Card{Card{Suit: 2, Value: 9}}); err != nil {
-		t.Errorf("Wtf: %s\n", "foo")
-	}
-	w := State{NextPlayer: 1, LastPlayerToTake: 0, Deck: []Card{Card{Suit: 1, Value: 8}, Card{Suit: 2, Value: 4}, Card{Suit: 4, Value: 4}, Card{Suit: 2, Value: 8}, Card{Suit: 3, Value: 10}, Card{Suit: 2, Value: 10}, Card{Suit: 3, Value: 2}, Card{Suit: 3, Value: 7}, Card{Suit: 3, Value: 3}, Card{Suit: 3, Value: 1}, Card{Suit: 1, Value: 5}, Card{Suit: 2, Value: 5}, Card{Suit: 3, Value: 9}, Card{Suit: 1, Value: 7}, Card{Suit: 2, Value: 2}, Card{Suit: 1, Value: 9}, Card{Suit: 2, Value: 1}, Card{Suit: 4, Value: 3}, Card{Suit: 3, Value: 4}, Card{Suit: 4, Value: 6}, Card{Suit: 1, Value: 10}, Card{Suit: 1, Value: 4}, Card{Suit: 1, Value: 6}, Card{Suit: 1, Value: 3}, Card{Suit: 4, Value: 10}, Card{Suit: 2, Value: 6}, Card{Suit: 2, Value: 7}, Card{Suit: 3, Value: 6}, Card{Suit: 4, Value: 7}, Card{Suit: 3, Value: 5}}, Table: []Card{Card{Suit: 4, Value: 2}, Card{Suit: 4, Value: 5}, Card{Suit: 2, Value: 3}, Card{Suit: 2, Value: 3}}, Players: []Player{Player{Id: 1, Hand: []Card{Card{Suit: 4, Value: 8}, Card{Suit: 4, Value: 1}}, Grabbed: []Card{Card{Suit: 4, Value: 9}, Card{Suit: 2, Value: 9}}, Scopas: 0, Awards: []string(nil)}, Player{Id: 2, Hand: []Card{Card{Suit: 1, Value: 2}, Card{Suit: 1, Value: 1}, Card{Suit: 3, Value: 8}}, Grabbed: []Card(nil), Scopas: 0, Awards: []string(nil)}}, LastMove: move{Drop: (*drop)(nil), Take: (*take)(nil)}}
-	if d := cmp.Diff(w, s); d != "" {
-		t.Errorf("mismatch (-prod +test):\n%s", d)
-	}
-}
