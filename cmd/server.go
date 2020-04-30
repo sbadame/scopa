@@ -50,11 +50,6 @@ type take struct {
 	Table    []scopa.Card
 }
 
-// /join streams updates with JSON marshalled from this type to clients.
-type update struct {
-	State scopa.State
-}
-
 type player struct {
 	client chan struct{}
 	nick   string
@@ -363,7 +358,8 @@ func main() {
 		// Push the initial state, then keep pushing the full state with every change.
 		for {
 			// Push the match state
-			if err := websocket.JSON.Send(ws, update{State: match.state}); err != nil {
+			update := struct{ State scopa.State }{match.state}
+			if err := websocket.JSON.Send(ws, update); err != nil {
 				io.WriteString(ws, errorJSON(fmt.Sprintf("state json send error: %#v", err)))
 				return
 			}
