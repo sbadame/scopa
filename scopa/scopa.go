@@ -140,63 +140,6 @@ func NewGame() State {
 	return s
 }
 
-func (s *State) Check() error {
-	// Check that there are 40 cards
-	c := 0
-	c += len(s.Deck)
-	c += len(s.Table)
-	for _, p := range s.Players {
-		c += len(p.Hand)
-		c += len(p.Grabbed)
-	}
-	if c != 40 {
-		return fmt.Errorf("Failed 40 card check, found %d", c)
-	}
-
-	// Check that no card appears more than once.
-	m := make(map[Card]bool)
-	// Deck
-	for _, i := range s.Deck {
-		if m[i] {
-			return fmt.Errorf("Deck has repeated cards, found %#v, \n%#v", i, s)
-		}
-		m[i] = true
-	}
-
-	// Table
-	for _, i := range s.Table {
-		if m[i] {
-			return fmt.Errorf("Deck has repeated cards, found %#v, \n%#v", i, s)
-		}
-		m[i] = true
-	}
-
-	// Players
-	for _, p := range s.Players {
-		for _, c := range p.Hand {
-			if m[c] {
-				return fmt.Errorf("Deck has repeated cards, found %#v, \n%#v", c, s)
-			}
-			m[c] = true
-		}
-		for _, c := range p.Grabbed {
-			if m[c] {
-				return fmt.Errorf("Deck has repeated cards, found %#v, \n%#v", c, s)
-			}
-			m[c] = true
-		}
-	}
-
-	// Check that player values make sense
-	maxPlayers := len(s.Players)
-	for _, p := range s.Players {
-		if p.Id <= 0 || p.Id > maxPlayers {
-			return fmt.Errorf("Player Id is invalid")
-		}
-	}
-	return nil
-}
-
 func Index(c Card, s []Card) int {
 	for i, x := range s {
 		if x == c {
