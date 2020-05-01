@@ -9,16 +9,19 @@ import (
 	"math/rand"
 )
 
-type Suit int
+// Suit of a card.
+type Suit string
 
+// The different Card Suits.
 const (
-	UnknownSuit Suit = iota
-	Denari
-	Coppe
-	Bastoni
-	Spade
+	UnknownSuit Suit = "[Unknown]"
+	Denari           = "Denari"
+	Coppe            = "Coppe"
+	Bastoni          = "Bastoni"
+	Spade            = "Spade"
 )
 
+// Card is a Card that is in the game.
 type Card struct {
 	Suit  Suit
 	Value int
@@ -86,13 +89,10 @@ func perroError(card Card) error {
 func NewDeck() []Card {
 
 	// Construct a full deck of cards.
-	d := make([]Card, 40)
-
-	i := 0
-	for s := 1; s <= 4; s++ {
+	d := make([]Card, 0)
+	for _, s := range []Suit{Denari, Coppe, Bastoni, Spade} {
 		for v := 1; v <= 10; v++ {
-			d[i] = Card{Suit(s), v}
-			i++
+			d = append(d, Card{s, v})
 		}
 	}
 	return d

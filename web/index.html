@@ -230,10 +230,17 @@
             }
 
             function renderCard(suite, value) {
+                // This order matches the order in cards.jpg
+                const suites = {
+                    Denari: 0,
+                    Coppe: 1,
+                    Bastoni: 2,
+                    Spade: 3,
+                };
                 const card = document.createElement('div');
                 card.className = 'cards';
                 card.style.backgroundPositionX = `-${(value - 1) * 100}px`;
-                card.style.backgroundPositionY = `-${(suite - 1) * 170}px`;
+                card.style.backgroundPositionY = `-${(suites[suite] - 1) * 170}px`;
                 card.dataset.value = value;
                 card.dataset.suite = suite;
                 return card;
@@ -343,12 +350,6 @@
                         return 'Settebello';
                     }
                     const {Suit, Value} = card;
-                    const suites = {
-                        1: 'Denari',
-                        2: 'Coppe',
-                        3: 'Bastoni',
-                        4: 'Spade',
-                    };
                     const values = {
                         1: '1',
                         2: '2',
@@ -361,7 +362,7 @@
                         9: 'Cavallo',
                         10: 'Re',
                     };
-                    return `${values[Value]} di ${suites[Suit]}`;
+                    return `${values[Value]} di ${Suit}`;
                 }
 
                 function names(cards) {
