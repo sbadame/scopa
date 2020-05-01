@@ -6,6 +6,19 @@ import (
 	"testing"
 )
 
+func TestMatch(t *testing.T) {
+    m := newMatch()
+    sb := make(scoreboard)
+    if _, err := m.join(-1, "a", sb); err != nil {
+	t.Errorf("Couldn't join a match: %v", err)
+    }
+
+    if _, err := m.join(-1, "b", sb); err != nil {
+	t.Errorf("Couldn't join a match: %v", err)
+    }
+
+}
+
 func TestScoreboard(t *testing.T) {
 	f, err := ioutil.TempFile("", "testscoreboard")
 	if err != nil {

@@ -43,7 +43,7 @@ type drop struct {
 	Card     scopa.Card
 }
 
-// /take request content body json is marsheled into this struct.
+// /take request content body json is marshaled into this struct.
 type take struct {
 	PlayerID int
 	Card     scopa.Card
@@ -65,17 +65,14 @@ type Match struct {
 	players   []player
 }
 
-func newMatch() Match {
+func newMatch() *Match {
 	m := Match{
-		sync.Mutex{},
-		scopa.NewGame(),
-		time.Now().Unix(),
-		make([]string, 0),
-		make(chan struct{}, 0),
-		make([]player, 0),
+		state: scopa.NewGame(),
+		ID: time.Now().Unix(),
+		gameStart: make(chan struct{}, 0),
 	}
 	m.logs = append(m.logs, fmt.Sprintf("state: %#v\n", m.state))
-	return m
+	return &m
 }
 
 func (m *Match) join(matchID int64, nick string, sb scoreboard) (chan struct{}, error) {
@@ -118,7 +115,7 @@ func (m *Match) join(matchID int64, nick string, sb scoreboard) (chan struct{}, 
 	return updateChan, nil
 }
 
-func (m Match) playerID(nick string) int {
+func (m *Match) playerID(nick string) int {
 	for i, p := range m.players {
 		if p.nick == nick {
 			return i + 1
@@ -127,7 +124,7 @@ func (m Match) playerID(nick string) int {
 	return -1
 }
 
-func (m Match) scorecardKey() string {
+func (m *Match) scorecardKey() string {
 	s := make([]string, 0)
 	for _, p := range m.players {
 		s = append(s, p.nick)
@@ -237,7 +234,7 @@ func parseRequestJSON(w http.ResponseWriter, r *http.Request, v interface{}) boo
 	return true
 }
 
-func (m Match) endTurn(sb scoreboard) {
+func (m *Match) endTurn(sb scoreboard) {
 	m.logs = append(m.logs, fmt.Sprintf("state: %#v\n", m.state))
 
 	if m.state.Ended() {
