@@ -153,15 +153,12 @@ func Contains(c Card, s []Card) bool {
 	return Index(c, s) != -1
 }
 
-func Remove(i int, s []Card) []Card {
-	return append(s[:i], s[i+1:]...)
-}
-
 func RemoveCard(c Card, s []Card) ([]Card, error) {
 	if i := Index(c, s); i == -1 {
-		return nil, fmt.Errorf("Didn't find %v in %v", c, s)
+		return nil, fmt.Errorf("%v coesn't contain %v", s, c)
 	} else {
-		return Remove(i, s), nil
+		// Remove the card
+		return append(s[:i], s[i+1:]...), nil
 	}
 }
 
