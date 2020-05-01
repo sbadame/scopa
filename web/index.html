@@ -345,36 +345,16 @@
             }
 
             function lastMove(move) {
-                function name(card) {
-                    if (card.Suit === 1 && card.Value == 7) {
-                        return 'Settebello';
-                    }
-                    const {Suit, Value} = card;
-                    const values = {
-                        1: '1',
-                        2: '2',
-                        3: '3',
-                        4: '4',
-                        5: '5',
-                        6: '6',
-                        7: '7',
-                        8: 'Fante',
-                        9: 'Cavallo',
-                        10: 'Re',
-                    };
-                    return `${values[Value]} di ${Suit}`;
-                }
-
                 function names(cards) {
-                    return cards.map(name).join(', ');
+                    return cards.map((c) => c.Name).join(', ');
                 }
 
                 if (move.Drop) {
                     const {PlayerID, Card} = move.Drop;
-                    return `${nicknames[PlayerID]} dropped the ${name(Card)}`;
+                    return `${nicknames[PlayerID]} dropped the ${Card.Name}`;
                 } else if (move.Take) {
                     const {PlayerID, Card, Table} = move.Take;
-                    return `${nicknames[PlayerID]} took the ${names(Table)} with their ${name(Card)}`;
+                    return `${nicknames[PlayerID]} took the ${names(Table)} with their ${Card.Name}`;
                 }
                 return '';
             }

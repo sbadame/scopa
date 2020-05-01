@@ -5,8 +5,10 @@ package scopa
 //  2. Support for 4 players?
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
+	"strconv"
 )
 
 // Suit of a card.
@@ -25,6 +27,37 @@ const (
 type Card struct {
 	Suit  Suit
 	Value int
+}
+
+// String is the human readable representation of the card.
+func (c Card) String() string {
+	if c.Suit == Denari && c.Value == 7 {
+		return "Settebello"
+	}
+
+	v := strconv.Itoa(c.Value)
+	switch v {
+	case "8":
+		v = "Fante"
+	case "9":
+		v = "Cavallo"
+	case "10":
+		v = "Re"
+	}
+	return fmt.Sprintf("%s di %s", v, c.Suit)
+}
+
+// MarshalJSON customizes the Card JSON representation to include a "Name" field.
+func (c Card) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Suit  Suit
+		Value int
+		Name  string
+	}{
+		c.Suit,
+		c.Value,
+		c.String(),
+	})
 }
 
 type Player struct {
@@ -74,15 +107,15 @@ func moveErrorf(format string, a ...interface{}) error {
 }
 
 func badMathTake(card Card, take []Card) error {
-	return moveErrorf("%v can't take %v", card, take)
+	return moveErrorf("%s can't take %s", card, take)
 }
 
 func cardMissingFromTable(card Card, table []Card) error {
-	return moveErrorf("%v is not a card on the table %v", card, table)
+	return moveErrorf("%s is not a card on the table %s", card, table)
 }
 
 func perroError(card Card) error {
-	return moveErrorf("You gotta take %v", card)
+	return moveErrorf("You gotta take %s", card)
 }
 
 // NewDeck creates a newly shuffled deck.
