@@ -174,8 +174,8 @@
         </dialog>
         <script>
             'use strict';
-            // The playerID once we know it.
-            var playerID = null;
+            // The player's name once we know it.
+            var player = null;
 
             // The nicksnames once we know them.
             var nicknames = null;
@@ -270,11 +270,11 @@
                 // Who's turn?
                 const turn = document.createElement('div');
                 turn.id = 'turnIndicator';
-                if (playerID === state.NextPlayer) {
+                if (player === state.NextPlayer) {
                     turn.innerHTML = 'Your turn';
                     game.classList.add('activeTurn');
                 } else {
-                    turn.innerHTML = `Waiting for ${nicknames[state.NextPlayer]}`;
+                    turn.innerHTML = `Waiting for ${state.NextPlayer}`;
                 }
                 game.appendChild(turn);
 
@@ -302,7 +302,7 @@
                 const hand = document.createElement('div');
                 hand.id = 'hand';
                 let i = 0;
-                for (let t of state.Players[playerID - 1].Hand) {
+                for (let t of state.Player.Hand) {
                     let c = renderCard(t.Suit, t.Value);
                     c.style.transform = `rotate(${i * 20 - 20}deg)`;
                     c.addEventListener('click', (d) => {
@@ -319,7 +319,7 @@
                 // Give the player a action button.
                 const action = document.createElement('button');
                 action.setAttribute('id', 'action_button');
-                if (playerID === state.NextPlayer) {
+                if (player === state.NextPlayer) {
                     action.innerText = 'Select a card.';
                 } else {
                     action.innerText = 'Wait your turn...';
@@ -335,9 +335,7 @@
                 for (let p of state.Players) {
                     const award = document.createElement('div');
                     award.classList.add('award');
-                    award.innerText = `${nicknames[p.Id]}: Scopas: ${p.Scopas}, Awards: ${
-                        p.Awards ? p.Awards.join() : ''
-                    }`;
+                    award.innerText = `${p.Name}: Scopas: ${p.Scopas}, Awards: ${p.Awards ? p.Awards.join() : ''}`;
                     game.appendChild(award);
                 }
 
@@ -350,11 +348,11 @@
                 }
 
                 if (move.Drop) {
-                    const {PlayerID, Card} = move.Drop;
-                    return `${nicknames[PlayerID]} dropped the ${Card.Name}`;
+                    const {Player, Card} = move.Drop;
+                    return `${Player} dropped the ${Card.Name}`;
                 } else if (move.Take) {
-                    const {PlayerID, Card, Table} = move.Take;
-                    return `${nicknames[PlayerID]} took the ${names(Table)} with their ${Card.Name}`;
+                    const {Player, Card, Table} = move.Take;
+                    return `${Player} took the ${names(Table)} with their ${Card.Name}`;
                 }
                 return '';
             }
@@ -377,14 +375,12 @@
                     d['Nicknames'] = (n) => {
                         nicknames = n;
                         renderScorecard();
+                        player = window.localStorage.getItem('Nickname');
                     };
                     d['State'] = renderState;
                     d['MatchID'] = (m) => {
                         window.localStorage.setItem('MatchID', m);
                         document.querySelector('#waiting_dialog').showModal();
-                    };
-                    d['PlayerID'] = (p) => {
-                        playerID = p;
                     };
                     d['Scorecard'] = renderScorecard;
                     for (var key in data) {
@@ -425,7 +421,7 @@
             // Take the selected cards
             async function take() {
                 const result = await post('/take', {
-                    PlayerID: playerID,
+                    Player: player,
                     Card: globalPlayerSelected,
                     Table: globalTableSelected,
                 });
@@ -436,7 +432,7 @@
 
             // Drop the selected card
             async function drop() {
-                const result = await post('/drop', {PlayerID: playerID, Card: globalPlayerSelected});
+                const result = await post('/drop', {Player: player, Card: globalPlayerSelected});
                 if ('Message' in result) {
                     showDialog(result.Message);
                 }

@@ -39,15 +39,15 @@ func errorJSON(message string) string {
 
 // /drop request content body json is marsheled into this struct.
 type drop struct {
-	PlayerID int
-	Card     scopa.Card
+	Player string
+	Card   scopa.Card
 }
 
 // /take request content body json is marshaled into this struct.
 type take struct {
-	PlayerID int
-	Card     scopa.Card
-	Table    []scopa.Card
+	Player string
+	Card   scopa.Card
+	Table  []scopa.Card
 }
 
 type player struct {
@@ -67,8 +67,7 @@ type Match struct {
 
 func newMatch() *Match {
 	m := Match{
-		state: scopa.NewGame(),
-		ID: time.Now().Unix(),
+		ID:        time.Now().Unix(),
 		gameStart: make(chan struct{}, 0),
 	}
 	m.logs = append(m.logs, fmt.Sprintf("state: %#v\n", m.state))
@@ -110,18 +109,15 @@ func (m *Match) join(matchID int64, nick string, sb scoreboard) (chan struct{}, 
 		if m.players[0].nick != n {
 			m.players[0], m.players[1] = m.players[1], m.players[0]
 		}
+
+		names := make([]string, 0)
+		for _, p := range m.players {
+			names = append(names, p.nick)
+		}
+		m.state = scopa.NewGame(names)
 		close(m.gameStart) // Broadcast that the game is ready to start to all clients.
 	}
 	return updateChan, nil
-}
-
-func (m *Match) playerID(nick string) int {
-	for i, p := range m.players {
-		if p.nick == nick {
-			return i + 1
-		}
-	}
-	return -1
 }
 
 func (m *Match) scorecardKey() string {
@@ -336,11 +332,9 @@ func main() {
 		<-match.gameStart
 
 		init := struct {
-			PlayerID  int
 			Nicknames map[int]string
 			Scorecard map[string]int
 		}{
-			match.playerID(nick),
 			make(map[int]string),
 			sb.scores(match.players[0].nick, match.players[1].nick),
 		}
@@ -354,9 +348,10 @@ func main() {
 
 		// Push the initial state, then keep pushing the full state with every change.
 		for {
-			// Push the match state
-			update := struct{ State scopa.State }{match.state}
-			if err := websocket.JSON.Send(ws, update); err != nil {
+			// Push the match state with nick's and redacted info.
+			if b, err := match.state.JSONForPlayer(nick); err == nil {
+				io.WriteString(ws, fmt.Sprintf(`{"State": %s}`, b))
+			} else {
 				io.WriteString(ws, errorJSON(fmt.Sprintf("state json send error: %#v", err)))
 				return
 			}
@@ -375,7 +370,7 @@ func main() {
 			return
 		}
 
-		if d.PlayerID != match.state.NextPlayer {
+		if d.Player != match.state.NextPlayer {
 			w.WriteHeader(400)
 			io.WriteString(w, errorJSON("Not your turn!"))
 			return
@@ -408,7 +403,7 @@ func main() {
 			return
 		}
 
-		if t.PlayerID != match.state.NextPlayer {
+		if t.Player != match.state.NextPlayer {
 			w.WriteHeader(400)
 			io.WriteString(w, errorJSON("Not your turn!"))
 			return

@@ -2,7 +2,6 @@ package scopa
 
 import (
 	"github.com/google/go-cmp/cmp"
-	"reflect"
 	"testing"
 )
 
@@ -21,24 +20,24 @@ func TestTake(t *testing.T) {
 			hand:  []Card{Card{Denari, 7}},
 			table: []Card{Card{Coppe, 7}, Card{Denari, 10}},
 			wantState: &State{
-				NextPlayer: 2,
+				NextPlayer: "2",
 				Table:      []Card{},
 				Players: []Player{
 					Player{
-						Id:      1,
+						Name:    "1",
 						Hand:    []Card{},
 						Scopas:  0,
-						Grabbed: []Card{Card{Suit: Denari, Value: 7}, Card{Suit: Coppe, Value: 7}, Card{Suit: Denari, Value: 10}},
+						Grabbed: []Card{Card{Denari, 7}, Card{Coppe, 7}},
 						Awards:  []string{"Cards", "Denari", "SetteBello", "Primera"},
 					},
-					Player{Id: 2},
+					Player{Name: "2"},
 				},
-				LastPlayerToTake: 1,
+				LastPlayerToTake: "1",
 				LastMove: move{
 					Take: &take{
-						PlayerID: 1,
-						Card:     Card{Suit: Denari, Value: 7},
-						Table:    []Card{{Suit: Coppe, Value: 7}},
+						Player: "1",
+						Card:   Card{Denari, 7},
+						Table:  []Card{{Coppe, 7}},
 					},
 				},
 			},
@@ -49,24 +48,24 @@ func TestTake(t *testing.T) {
 			hand:  []Card{Card{Denari, 7}},
 			table: []Card{Card{Coppe, 7}},
 			wantState: &State{
-				NextPlayer:       2,
+				NextPlayer:       "2",
 				Table:            []Card{},
-				LastPlayerToTake: 1,
+				LastPlayerToTake: "1",
 				Players: []Player{
 					Player{
-						Id:      1,
+						Name:    "1",
 						Hand:    []Card{},
 						Scopas:  1,
-						Grabbed: []Card{{Suit: Denari, Value: 7}, {Suit: Coppe, Value: 7}},
+						Grabbed: []Card{{Denari, 7}, {Coppe, 7}},
 						Awards:  []string{"Cards", "Denari", "SetteBello", "Primera"},
 					},
-					Player{Id: 2},
+					Player{Name: "2"},
 				},
 				LastMove: move{
 					Take: &take{
-						PlayerID: 1,
-						Card:     Card{Suit: Denari, Value: 7},
-						Table:    []Card{{Suit: Coppe, Value: 7}},
+						Player: "1",
+						Card:   Card{Denari, 7},
+						Table:  []Card{{Coppe, 7}},
 					},
 				},
 			},
@@ -93,36 +92,36 @@ func TestTake(t *testing.T) {
 			wantErr: perroError(Card{Spade, 10}),
 		},
 		"regression": {
-			card: Card{Suit: Spade, Value: 9},
-			take: []Card{Card{Suit: Coppe, Value: 9}},
-			hand: []Card{Card{Suit: Spade, Value: 8}, Card{Suit: Spade, Value: 1}, Card{Suit: Spade, Value: 9}},
+			card: Card{Spade, 9},
+			take: []Card{Card{Coppe, 9}},
+			hand: []Card{Card{Spade, 8}, Card{Spade, 1}, Card{Spade, 9}},
 			table: []Card{
-				Card{Suit: Spade, Value: 2},
-				Card{Suit: Spade, Value: 5},
-				Card{Suit: Coppe, Value: 9},
-				Card{Suit: Coppe, Value: 3},
+				Card{Spade, 2},
+				Card{Spade, 5},
+				Card{Coppe, 9},
+				Card{Coppe, 3},
 			},
 			wantState: &State{
-				NextPlayer:       2,
-				LastPlayerToTake: 1,
+				NextPlayer:       "2",
+				LastPlayerToTake: "1",
 				Table: []Card{
-					{Suit: Spade, Value: 2},
-					{Suit: Spade, Value: 5},
-					{Suit: Coppe, Value: 3},
+					{Spade, 2},
+					{Spade, 5},
+					{Coppe, 3},
 				},
 				Players: []Player{
 					Player{
-						Id:      1,
-						Hand:    []Card{{Suit: Spade, Value: 8}, {Suit: Spade, Value: 1}},
-						Grabbed: []Card{{Suit: Spade, Value: 9}, {Suit: Coppe, Value: 9}},
+						Name:    "1",
+						Hand:    []Card{{Spade, 8}, {Spade, 1}},
+						Grabbed: []Card{{Spade, 9}, {Coppe, 9}},
 					},
-					Player{Id: 2},
+					Player{Name: "2"},
 				},
 				LastMove: move{
 					Take: &take{
-						PlayerID: 1,
-						Card:     Card{Suit: Spade, Value: 9},
-						Table:    []Card{{Suit: Coppe, Value: 9}},
+						Player: "1",
+						Card:   Card{Spade, 9},
+						Table:  []Card{{Coppe, 9}},
 					},
 				},
 			},
@@ -130,17 +129,23 @@ func TestTake(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		s := State{NextPlayer: 1, Table: tc.table, Players: []Player{Player{Id: 1, Hand: tc.hand}, Player{Id: 2}}}
-		initialState := s
-		if err := s.Take(tc.card, tc.take); !reflect.DeepEqual(err, tc.wantErr) {
-			t.Errorf("%s: wanted %#v but got %#v", name, tc.wantErr, err)
-			if err != nil && !reflect.DeepEqual(initialState, s) {
-				t.Errorf("%s: An error was generated, but state was modified from %#v to %#v", name, initialState, s)
-			}
+		s := State{
+			NextPlayer: "1",
+			Table:      tc.table,
+			Players: []Player{
+				Player{Name: "1", Hand: tc.hand},
+				Player{Name: "2"},
+			},
 		}
+
+		err := s.Take(tc.card, tc.take)
+		if d := cmp.Diff(err, tc.wantErr); d != "" {
+			t.Errorf("%s: mismatch error (-want +got):\n%s", name, d)
+		}
+
 		if tc.wantState != nil {
 			if d := cmp.Diff(*tc.wantState, s); d != "" {
-				t.Errorf("%s: mismatch (-want +got):\n%s", name, d)
+				t.Errorf("%s: mismatch state (-want +got):\n%s", name, d)
 			}
 		}
 	}

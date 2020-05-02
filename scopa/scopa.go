@@ -60,23 +60,33 @@ func (c Card) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// Player is particpant in the Scopa game.
 type Player struct {
-	Id      int
+	Name    string
 	Hand    []Card
 	Grabbed []Card
 	Scopas  int
 	Awards  []string
 }
 
+func (p Player) holds(card Card) error {
+	for _, c := range p.Hand {
+		if c == card {
+			return nil
+		}
+	}
+	return fmt.Errorf("Player %s doesn't have %s in their hand: %v", p.Name, card, p.Hand)
+}
+
 type drop struct {
-	PlayerID int
-	Card     Card
+	Player string
+	Card   Card
 }
 
 type take struct {
-	PlayerID int
-	Card     Card
-	Table    []Card
+	Player string
+	Card   Card
+	Table  []Card
 }
 
 type move struct {
@@ -85,21 +95,75 @@ type move struct {
 }
 
 type State struct {
-	NextPlayer       int
-	LastPlayerToTake int
+	NextPlayer       string
+	LastPlayerToTake string
 	Deck             []Card
 	Table            []Card
 	Players          []Player
 	LastMove         move
 }
 
+// JSONForPlayer customizes the JSON output to include a mapping of player name to Player.
+func (s *State) JSONForPlayer(name string) ([]byte, error) {
+	p, err := s.player(name)
+	if err != nil {
+		return nil, err
+	}
+	j := struct {
+		NextPlayer       string
+		LastPlayerToTake string
+		Table            []Card
+		Players          []Player
+		Player           Player
+		LastMove         move
+	}{
+		s.NextPlayer,
+		s.LastPlayerToTake,
+		s.Table,
+		make([]Player, 0),
+		*p,
+		s.LastMove,
+	}
+	for _, p := range s.Players {
+		j.Players = append(j.Players, p)
+	}
+	return json.Marshal(j)
+}
+
+func (s *State) player(name string) (*Player, error) {
+	for i, p := range s.Players {
+		if p.Name == name {
+			return &s.Players[i], nil
+		}
+	}
+	return nil, fmt.Errorf("%s isn't a player in %v", name, s.Players)
+}
+
+func (s *State) nextPlayer() *Player {
+	for i, p := range s.Players {
+		if p.Name == s.NextPlayer {
+			return &s.Players[(i+1)%len(s.Players)]
+		}
+	}
+	panic(fmt.Sprintf("s.NextPlayer (%s) was not found in %v", s.NextPlayer, s.Players))
+}
+
+func (s *State) currentPlayer() *Player {
+	for i, p := range s.Players {
+		if p.Name == s.NextPlayer {
+			return &s.Players[i]
+		}
+	}
+	panic(fmt.Sprintf("s.NextPlayer (%s) was not found in %v", s.NextPlayer, s.Players))
+}
+
 // MoveError is used when the player is attempting an invalid move.
 type MoveError struct {
-	message string
+	Message string
 }
 
 func (e MoveError) Error() string {
-	return e.message
+	return e.Message
 }
 
 func moveErrorf(format string, a ...interface{}) error {
@@ -137,39 +201,51 @@ func Shuffle(cards []Card) {
 	})
 }
 
-func NewGame() State {
+// NewGame creates a game with the given names as player names.
+// They will play in the order provided.
+func NewGame(names []string) State {
 	// Create the game state with no cards
 	s := State{
-		NextPlayer: 1,
-		Players:    []Player{Player{Id: 1}, Player{Id: 2}},
+		NextPlayer: names[0],
 	}
-	p1, p2 := &s.Players[0], &s.Players[1]
+	for _, n := range names {
+		s.Players = append(s.Players, Player{Name: n})
+	}
 
-	// Now lets deal out the cards
-	cards := NewDeck()
-
-	// Keep shuffling until we don't see more than 2 Re's on the table (first 4 cards)
+	// Keep shuffling and dealing until we don't see more than 2 Re's on the table
 	for {
-		Shuffle(cards)
+		cards := NewDeck()
 
+		// Moves 1 card from one slice to another.
+		deal := func(to *[]Card) {
+			*to = append(*to, cards[0])
+			cards = cards[1:]
+		}
+
+		Shuffle(cards)
+		deal(&s.Table)
+
+		// Round robin 3 cards to each player, rest go into the Game's deck.
+		for x := 0; x < 3; x++ {
+			for i := range s.Players {
+				deal(&s.Players[i].Hand)
+			}
+			deal(&s.Table)
+		}
+
+		// Check if there are 2 or more Re's on the table.
 		r := 0
 		for i := 0; i < 4; i++ {
 			if cards[i].Value == 10 {
-				r += 1
+				r++
 			}
 		}
 		if r <= 2 {
+			// Good deal.
+			s.Deck = cards
 			break
 		}
 	}
-
-	// This is not the standard dealing order...  Oh well...
-	// 4 on the table, 3 cards to each player, rest go into the Game's deck.
-	s.Table = append(s.Table, cards[:4]...)
-	p1.Hand = append(p1.Hand, cards[4:7]...)
-	p2.Hand = append(p2.Hand, cards[7:10]...)
-	s.Deck = append(s.Deck, cards[10:]...)
-
 	return s
 }
 
@@ -193,17 +269,6 @@ func RemoveCard(c Card, s []Card) ([]Card, error) {
 		// Remove the card
 		return append(s[:i], s[i+1:]...), nil
 	}
-}
-
-func (s State) CheckCurrentPlayerHasCard(card Card) error {
-	// Check that the player actually has the card.
-	playerID := s.NextPlayer - 1
-	p := &s.Players[playerID]
-	var handIndex int
-	if handIndex = Index(card, p.Hand); handIndex == -1 {
-		return fmt.Errorf("Player %d doesn't have %v in their hand: %v", s.NextPlayer, card, p.Hand)
-	}
-	return nil
 }
 
 func (s State) EmptyHands() bool {
@@ -319,15 +384,15 @@ func Primera(p1, p2 *Player) {
 
 func (s *State) endTurn() error {
 	// Move the turn to the next player.
-	s.NextPlayer++
-	if s.NextPlayer > len(s.Players) {
-		s.NextPlayer = 1
-	}
+	s.NextPlayer = s.nextPlayer().Name
 
 	if s.Ended() {
 		// Give the player that last took cards, the remaining cards on the table.
-		g := &s.Players[s.LastPlayerToTake-1]
-		g.Grabbed = append(g.Grabbed, s.Table...)
+
+		if p, err := s.player(s.LastPlayerToTake); err != nil {
+			(*p).Grabbed = append((*p).Grabbed, s.Table...)
+			panic(fmt.Errorf(`s.LastPlayerToTake is not in the list of players: %v`, err))
+		}
 
 		// Not that it matters, but remove the last cards from the table.
 		s.Table = []Card{}
@@ -368,7 +433,7 @@ func (s *State) Take(card Card, table []Card) error {
 		}
 	}
 
-	if err := s.CheckCurrentPlayerHasCard(card); err != nil {
+	if err := s.currentPlayer().holds(card); err != nil {
 		return err
 	}
 
@@ -385,8 +450,7 @@ func (s *State) Take(card Card, table []Card) error {
 	}
 
 	// Looking good! Lets do the move!
-	playerID := s.NextPlayer - 1
-	p := &s.Players[playerID]
+	p := s.currentPlayer()
 
 	// Remove the card from the player's hand.
 	newHand, err := RemoveCard(card, p.Hand)
@@ -416,20 +480,19 @@ func (s *State) Take(card Card, table []Card) error {
 		p.Scopas++
 	}
 
-	s.LastPlayerToTake = p.Id
+	s.LastPlayerToTake = s.currentPlayer().Name
 	s.LastMove = move{Take: &take{s.NextPlayer, card, table}}
 	return s.endTurn()
 }
 
 func (s *State) Drop(card Card) error {
 	// Validating inputs...
-	if err := s.CheckCurrentPlayerHasCard(card); err != nil {
+	if err := s.currentPlayer().holds(card); err != nil {
 		return err
 	}
 
 	// Looks good, drop the card on the table.
-	playerID := s.NextPlayer - 1
-	p := &s.Players[playerID]
+	p := s.currentPlayer()
 
 	// Remove the card from the player's hand.
 	newHand, err := RemoveCard(card, p.Hand)
