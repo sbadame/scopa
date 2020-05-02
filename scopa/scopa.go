@@ -116,6 +116,7 @@ func (s *State) JSONForPlayer(name string) ([]byte, error) {
 		Players          []Player
 		Player           Player
 		LastMove         move
+		Ended            bool
 	}{
 		s.NextPlayer,
 		s.LastPlayerToTake,
@@ -123,6 +124,7 @@ func (s *State) JSONForPlayer(name string) ([]byte, error) {
 		make([]Player, 0),
 		*p,
 		s.LastMove,
+		s.Ended(),
 	}
 	for _, p := range s.Players {
 		j.Players = append(j.Players, p)
