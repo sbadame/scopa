@@ -132,12 +132,14 @@
                 box-shadow: 3px 3px 7px rgba(0, 0, 0, 0.3);
             }
 
+            #endgame_dialog,
             #waiting_dialog,
             #nickname_dialog {
                 border-radius: 7px;
                 border-width: 3px;
             }
 
+            #endgame_dialog::backdrop,
             #waiting_dialog::backdrop,
             #nickname_dialog::backdrop {
                 background-color: #d5ab24;
@@ -147,6 +149,9 @@
     <body>
         <dialog id="waiting_dialog">
             <p>Waiting for another player to join.</p>
+        </dialog>
+        <dialog id="endgame_dialog">
+            <!-- See renderEndGame -->
         </dialog>
         <table id="scorecard">
             <thead>
@@ -246,6 +251,27 @@
                 return card;
             }
 
+            function renderEndGame(state) {
+                const endgame_dialog = document.querySelector('#endgame_dialog');
+
+                for (let p of state.Players) {
+                    const award = document.createElement('div');
+                    award.classList.add('award');
+                    award.innerText = `${p.Name}: Scopas: ${p.Scopas}, Awards: ${p.Awards ? p.Awards.join() : ''}`;
+                    endgame_dialog.appendChild(award);
+                }
+
+                const newgame = document.createElement('button');
+                newgame.innerText = 'Rematch';
+                newgame.setAttribute('id', 'newgame_button');
+                newgame.addEventListener('click', () => {
+                    // TODO: When the endpoint exists, do a 'create or rejoin' call here.
+                });
+
+                endgame_dialog.appendChild(newgame);
+                endgame_dialog.showModal();
+            }
+
             function renderState(state) {
                 // TODO: Migrate this to use a <template> html element, to make this easier to read...
 
@@ -255,6 +281,12 @@
                 // Clear out the current selections...
                 globalTableSelected = [];
                 globalPlayerSelected = [];
+
+                // Check if the game has ended and do something totally different if that's the case.
+                if (state.Ended) {
+                    renderEndGame(state);
+                    return;
+                }
 
                 // Remove the current display if it.
                 let game = document.querySelector('#game');
@@ -330,14 +362,6 @@
                 wrapper.id = 'action';
                 wrapper.appendChild(action);
                 game.appendChild(wrapper);
-
-                // Check if there are awards to grant!
-                for (let p of state.Players) {
-                    const award = document.createElement('div');
-                    award.classList.add('award');
-                    award.innerText = `${p.Name}: Scopas: ${p.Scopas}, Awards: ${p.Awards ? p.Awards.join() : ''}`;
-                    game.appendChild(award);
-                }
 
                 document.querySelector('#waiting_dialog').close();
             }
