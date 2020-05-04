@@ -444,6 +444,11 @@ func main() {
 		}
 	})
 
+	// Reset the match, no qustions asked, power users only...
+	http.HandleFunc("/reset", func(w http.ResponseWriter, r *http.Request) {
+		match = newMatch()
+	})
+
 	if *httpsHost != "" {
 		// Still create an http server, but make it always redirect to https
 		s := http.Server{
