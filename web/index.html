@@ -132,14 +132,14 @@
                 box-shadow: 3px 3px 7px rgba(0, 0, 0, 0.3);
             }
 
-            #endgame_dialog,
+            #endMatch_dialog,
             #waiting_dialog,
             #nickname_dialog {
                 border-radius: 7px;
                 border-width: 3px;
             }
 
-            #endgame_dialog::backdrop,
+            #endMatch_dialog::backdrop,
             #waiting_dialog::backdrop,
             #nickname_dialog::backdrop {
                 background-color: #d5ab24;
@@ -150,8 +150,8 @@
         <dialog id="waiting_dialog">
             <p>Waiting for another player to join.</p>
         </dialog>
-        <dialog id="endgame_dialog">
-            <!-- See renderEndGame -->
+        <dialog id="endMatch_dialog">
+            <!-- See renderEndMatch -->
         </dialog>
         <table id="scorecard">
             <thead>
@@ -166,7 +166,6 @@
             </tr>
         </table>
         <div id="game"></div>
-        <button onclick="newGame()">New Game</button>
         <dialog id="nickname_dialog">
             <form method="dialog">
                 <label for="nickname">Nickname:</label>
@@ -251,25 +250,23 @@
                 return card;
             }
 
-            function renderEndGame(state) {
-                const endgame_dialog = document.querySelector('#endgame_dialog');
+            function renderEndMatch(state) {
+                const endMatch_dialog = document.querySelector('#endMatch_dialog');
 
                 for (let p of state.Players) {
                     const award = document.createElement('div');
                     award.classList.add('award');
                     award.innerText = `${p.Name}: Scopas: ${p.Scopas}, Awards: ${p.Awards ? p.Awards.join() : ''}`;
-                    endgame_dialog.appendChild(award);
+                    endMatch_dialog.appendChild(award);
                 }
 
-                const newgame = document.createElement('button');
-                newgame.innerText = 'Rematch';
-                newgame.setAttribute('id', 'newgame_button');
-                newgame.addEventListener('click', () => {
-                    // TODO: When the endpoint exists, do a 'create or rejoin' call here.
-                });
+                const b = document.createElement('button');
+                b.innerText = 'Rematch';
+                b.setAttribute('id', 'newmatch_button');
+                b.addEventListener('click', newMatch);
+                endMatch_dialog.appendChild(b);
 
-                endgame_dialog.appendChild(newgame);
-                endgame_dialog.showModal();
+                endMatch_dialog.showModal();
             }
 
             function renderState(state) {
@@ -284,7 +281,7 @@
 
                 // Check if the game has ended and do something totally different if that's the case.
                 if (state.Ended) {
-                    renderEndGame(state);
+                    renderEndMatch(state);
                     return;
                 }
 
@@ -462,8 +459,13 @@
                 }
             }
 
-            async function newGame() {
-                await post('/reset');
+            async function newMatch() {
+                const matchID = parseInt(window.localStorage.getItem('MatchID'));
+                const result = await post('/newMatch', {OldMatchID: matchID});
+                if ('Message' in result) {
+                    showDialog(result.Message);
+                    return;
+                }
                 location.reload();
             }
 

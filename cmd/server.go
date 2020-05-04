@@ -265,11 +265,6 @@ func main() {
 	// Serve resources.
 	http.Handle("/", http.FileServer(http.Dir("./web")))
 
-	// Reset the match.
-	http.HandleFunc("/reset", func(w http.ResponseWriter, r *http.Request) {
-		match = newMatch()
-	})
-
 	// Provide Debug logs.
 	http.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) {
 		if len(gitCommit) > 0 {
@@ -432,6 +427,21 @@ func main() {
 		match.Lock()
 		defer match.Unlock()
 		io.WriteString(w, fmt.Sprintf(`{"MatchID": %d}`, match.ID))
+	})
+
+	// This will create a new match if one hasn't already been created.
+	http.HandleFunc("/newMatch", func(w http.ResponseWriter, r *http.Request) {
+		p := struct{ OldMatchID int64 }{}
+		if !parseRequestJSON(w, r, &p) {
+			return
+		}
+
+		match.Lock()
+		defer match.Unlock()
+
+		if p.OldMatchID == match.ID {
+			match = newMatch()
+		}
 	})
 
 	if *httpsHost != "" {
