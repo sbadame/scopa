@@ -1,11 +1,10 @@
 package scopa
 
 // TODO:
-//  1. Forcing a place to make a trick if they can.
-//  2. Support for 4 players?
+//  1. Support for 4 players?
 
 import (
-	"encoding/json"
+	encoding/json"
 	"fmt"
 	"math/rand"
 	"strconv"
