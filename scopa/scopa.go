@@ -205,7 +205,7 @@ func NewDeck() []Card {
 // They will play in the order provided.
 func NewGame(names []string) State {
 	// Create the game state with no cards
-	s := State{ NextPlayer: names[0] }
+	s := State{NextPlayer: names[0]}
 	for _, n := range names {
 		s.Players = append(s.Players, Player{Name: n})
 	}
@@ -245,7 +245,7 @@ func NewGame(names []string) State {
 	return s
 }
 
-func Index(c Card, s []Card) int {
+func index(c Card, s []Card) int {
 	for i, x := range s {
 		if x == c {
 			return i
@@ -255,19 +255,20 @@ func Index(c Card, s []Card) int {
 }
 
 func contains(c Card, s []Card) bool {
-	return Index(c, s) != -1
+	return index(c, s) != -1
 }
 
-func RemoveCard(c Card, s []Card) ([]Card, error) {
-	if i := Index(c, s); i == -1 {
+func removeCard(c Card, s []Card) ([]Card, error) {
+	i := index(c, s)
+	if i == -1 {
 		return nil, fmt.Errorf("%v coesn't contain %v", s, c)
-	} else {
-		// Remove the card
-		return append(s[:i], s[i+1:]...), nil
 	}
+
+	// Remove the card
+	return append(s[:i], s[i+1:]...), nil
 }
 
-func (s State) EmptyHands() bool {
+func (s State) emptyHands() bool {
 	// Check whether we need to deal out more cards...
 	for _, p := range s.Players {
 		if len(p.Hand) > 0 {
@@ -277,7 +278,7 @@ func (s State) EmptyHands() bool {
 	return true
 }
 
-func MostCards(p1, p2 *Player) {
+func mostCards(p1, p2 *Player) {
 	if len(p1.Grabbed) == len(p2.Grabbed) {
 		return
 	}
@@ -288,7 +289,7 @@ func MostCards(p1, p2 *Player) {
 	}
 }
 
-func MostDenari(p1, p2 *Player) {
+func mostDenari(p1, p2 *Player) {
 	var a int
 	for _, c := range p1.Grabbed {
 		if c.Suit == Denari {
@@ -314,7 +315,7 @@ func MostDenari(p1, p2 *Player) {
 	}
 }
 
-func SetteBello(p1, p2 *Player) {
+func setteBello(p1, p2 *Player) {
 	setteBello := Card{Denari, 7}
 	for _, c := range p1.Grabbed {
 		if c == setteBello {
@@ -364,7 +365,7 @@ func playerPrimera(p Player) int {
 	return d + s + k + b
 }
 
-func Primera(p1, p2 *Player) {
+func primera(p1, p2 *Player) {
 	a, b := playerPrimera(*p1), playerPrimera(*p2)
 
 	if a == b {
@@ -394,14 +395,14 @@ func (s *State) endTurn() error {
 		s.Table = []Card{}
 
 		// Count points
-		MostCards(&s.Players[0], &s.Players[1])
-		MostDenari(&s.Players[0], &s.Players[1])
-		SetteBello(&s.Players[0], &s.Players[1])
-		Primera(&s.Players[0], &s.Players[1])
+		mostCards(&s.Players[0], &s.Players[1])
+		mostDenari(&s.Players[0], &s.Players[1])
+		setteBello(&s.Players[0], &s.Players[1])
+		primera(&s.Players[0], &s.Players[1])
 		return nil
 	}
 
-	if s.EmptyHands() {
+	if s.emptyHands() {
 		// Deal out the next 3 cards to each player and remove them from the deck.
 		s.Players[0].Hand = s.Deck[:3]
 		s.Players[1].Hand = s.Deck[3:6]
@@ -449,7 +450,7 @@ func (s *State) Take(card Card, table []Card) error {
 	p := s.currentPlayer()
 
 	// Remove the card from the player's hand.
-	newHand, err := RemoveCard(card, p.Hand)
+	newHand, err := removeCard(card, p.Hand)
 	if err != nil {
 		return err
 	}
@@ -461,7 +462,7 @@ func (s *State) Take(card Card, table []Card) error {
 
 	// Remove the cards from the table.
 	for _, t := range table {
-		newTable, err := RemoveCard(t, s.Table)
+		newTable, err := removeCard(t, s.Table)
 		if err != nil {
 			return err
 		}
@@ -491,7 +492,7 @@ func (s *State) Drop(card Card) error {
 	p := s.currentPlayer()
 
 	// Remove the card from the player's hand.
-	newHand, err := RemoveCard(card, p.Hand)
+	newHand, err := removeCard(card, p.Hand)
 	if err != nil {
 		return err
 	}
@@ -510,5 +511,5 @@ func (s State) Ended() bool {
 	if len(s.Deck) > 0 {
 		return false
 	}
-	return s.EmptyHands()
+	return s.emptyHands()
 }
