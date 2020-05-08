@@ -194,6 +194,10 @@ func NewDeck() []Card {
 			d = append(d, Card{s, v})
 		}
 	}
+
+	rand.Shuffle(len(d), func(i, j int) {
+		d[i], d[j] = d[j], d[i]
+	})
 	return d
 }
 
@@ -201,9 +205,7 @@ func NewDeck() []Card {
 // They will play in the order provided.
 func NewGame(names []string) State {
 	// Create the game state with no cards
-	s := State{
-		NextPlayer: names[0],
-	}
+	s := State{ NextPlayer: names[0] }
 	for _, n := range names {
 		s.Players = append(s.Players, Player{Name: n})
 	}
@@ -217,10 +219,6 @@ func NewGame(names []string) State {
 			*to = append(*to, cards[0])
 			cards = cards[1:]
 		}
-
-		rand.Shuffle(len(cards), func(i, j int) {
-			cards[i], cards[j] = cards[j], cards[i]
-		})
 		deal(&s.Table)
 
 		// Round robin 3 cards to each player, rest go into the Game's deck.
