@@ -412,6 +412,7 @@ func (s *State) endTurn() error {
 	return nil
 }
 
+// Take performs a trick where the current place takes cards from the table whos values add up to a card in their hand.
 func (s *State) Take(card Card, table []Card) error {
 	// Validating inputs...
 	// Check that the math works out...
@@ -482,6 +483,7 @@ func (s *State) Take(card Card, table []Card) error {
 	return s.endTurn()
 }
 
+// Drop performs a trick where the current player drops a card from their hand onto the table.
 func (s *State) Drop(card Card) error {
 	// Validating inputs...
 	if err := s.currentPlayer().holds(card); err != nil {
