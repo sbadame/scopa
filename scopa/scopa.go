@@ -94,7 +94,8 @@ type move struct {
 	Take *take
 }
 
-type State struct {
+// Game is a struct that exposes all of the State related the current Scopa game.
+type Game struct {
 	NextPlayer       string
 	LastPlayerToTake string
 	Deck             []Card
@@ -104,7 +105,7 @@ type State struct {
 }
 
 // JSONForPlayer customizes the JSON output to include a mapping of player name to Player.
-func (s *State) JSONForPlayer(name string) ([]byte, error) {
+func (s *Game) JSONForPlayer(name string) ([]byte, error) {
 	p, err := s.player(name)
 	if err != nil {
 		return nil, err
@@ -132,7 +133,7 @@ func (s *State) JSONForPlayer(name string) ([]byte, error) {
 	return json.Marshal(j)
 }
 
-func (s *State) player(name string) (*Player, error) {
+func (s *Game) player(name string) (*Player, error) {
 	for i, p := range s.Players {
 		if p.Name == name {
 			return &s.Players[i], nil
@@ -141,7 +142,7 @@ func (s *State) player(name string) (*Player, error) {
 	return nil, fmt.Errorf("%s isn't a player in %v", name, s.Players)
 }
 
-func (s *State) nextPlayer() *Player {
+func (s *Game) nextPlayer() *Player {
 	for i, p := range s.Players {
 		if p.Name == s.NextPlayer {
 			return &s.Players[(i+1)%len(s.Players)]
@@ -150,7 +151,7 @@ func (s *State) nextPlayer() *Player {
 	panic(fmt.Sprintf("s.NextPlayer (%s) was not found in %v", s.NextPlayer, s.Players))
 }
 
-func (s *State) currentPlayer() *Player {
+func (s *Game) currentPlayer() *Player {
 	for i, p := range s.Players {
 		if p.Name == s.NextPlayer {
 			return &s.Players[i]
@@ -203,9 +204,9 @@ func NewDeck() []Card {
 
 // NewGame creates a game with the given names as player names.
 // They will play in the order provided.
-func NewGame(names []string) State {
+func NewGame(names []string) Game {
 	// Create the game state with no cards
-	s := State{NextPlayer: names[0]}
+	s := Game{NextPlayer: names[0]}
 	for _, n := range names {
 		s.Players = append(s.Players, Player{Name: n})
 	}
@@ -268,7 +269,7 @@ func removeCard(c Card, s []Card) ([]Card, error) {
 	return append(s[:i], s[i+1:]...), nil
 }
 
-func (s State) emptyHands() bool {
+func (s Game) emptyHands() bool {
 	// Check whether we need to deal out more cards...
 	for _, p := range s.Players {
 		if len(p.Hand) > 0 {
@@ -379,7 +380,7 @@ func primera(p1, p2 *Player) {
 	}
 }
 
-func (s *State) endTurn() error {
+func (s *Game) endTurn() error {
 	// Move the turn to the next player.
 	s.NextPlayer = s.nextPlayer().Name
 
@@ -413,7 +414,7 @@ func (s *State) endTurn() error {
 }
 
 // Take performs a trick where the current place takes cards from the table whos values add up to a card in their hand.
-func (s *State) Take(card Card, table []Card) error {
+func (s *Game) Take(card Card, table []Card) error {
 	// Validating inputs...
 	// Check that the math works out...
 	sum := 0
@@ -484,7 +485,7 @@ func (s *State) Take(card Card, table []Card) error {
 }
 
 // Drop performs a trick where the current player drops a card from their hand onto the table.
-func (s *State) Drop(card Card) error {
+func (s *Game) Drop(card Card) error {
 	// Validating inputs...
 	if err := s.currentPlayer().holds(card); err != nil {
 		return err
@@ -509,7 +510,7 @@ func (s *State) Drop(card Card) error {
 }
 
 // Ended is true if the game has ended and there are no more moves.
-func (s State) Ended() bool {
+func (s Game) Ended() bool {
 	if len(s.Deck) > 0 {
 		return false
 	}

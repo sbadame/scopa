@@ -59,7 +59,7 @@ type player struct {
 // The zero value for Match is valid.
 type Match struct {
 	sync.Mutex
-	state     scopa.State
+	state     scopa.Game
 	ID        int64
 	logs      []string
 	gameStart chan struct{} // Channel is closed when the game has started.
