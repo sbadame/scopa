@@ -4,7 +4,7 @@ package scopa
 //  1. Support for 4 players?
 
 import (
-	encoding/json"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"strconv"
