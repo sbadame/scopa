@@ -197,12 +197,6 @@ func NewDeck() []Card {
 	return d
 }
 
-func Shuffle(cards []Card) {
-	rand.Shuffle(len(cards), func(i, j int) {
-		cards[i], cards[j] = cards[j], cards[i]
-	})
-}
-
 // NewGame creates a game with the given names as player names.
 // They will play in the order provided.
 func NewGame(names []string) State {
@@ -224,7 +218,9 @@ func NewGame(names []string) State {
 			cards = cards[1:]
 		}
 
-		Shuffle(cards)
+		rand.Shuffle(len(cards), func(i, j int) {
+			cards[i], cards[j] = cards[j], cards[i]
+		})
 		deal(&s.Table)
 
 		// Round robin 3 cards to each player, rest go into the Game's deck.
