@@ -1,8 +1,7 @@
 package scopa
 
 // TODO:
-//  1. Forcing a place to make a trick if they can.
-//  2. Support for 4 players?
+//  1. Support for 4 players?
 
 import (
 	"encoding/json"
@@ -105,8 +104,8 @@ type Game struct {
 }
 
 // JSONForPlayer customizes the JSON output to include a mapping of player name to Player.
-func (s *Game) JSONForPlayer(name string) ([]byte, error) {
-	p, err := s.player(name)
+func (g *Game) JSONForPlayer(name string) ([]byte, error) {
+	p, err := g.player(name)
 	if err != nil {
 		return nil, err
 	}
@@ -119,45 +118,45 @@ func (s *Game) JSONForPlayer(name string) ([]byte, error) {
 		LastMove         move
 		Ended            bool
 	}{
-		s.NextPlayer,
-		s.LastPlayerToTake,
-		s.Table,
+		g.NextPlayer,
+		g.LastPlayerToTake,
+		g.Table,
 		make([]Player, 0),
 		*p,
-		s.LastMove,
-		s.Ended(),
+		g.LastMove,
+		g.Ended(),
 	}
-	for _, p := range s.Players {
+	for _, p := range g.Players {
 		j.Players = append(j.Players, p)
 	}
 	return json.Marshal(j)
 }
 
-func (s *Game) player(name string) (*Player, error) {
-	for i, p := range s.Players {
+func (g *Game) player(name string) (*Player, error) {
+	for i, p := range g.Players {
 		if p.Name == name {
-			return &s.Players[i], nil
+			return &g.Players[i], nil
 		}
 	}
-	return nil, fmt.Errorf("%s isn't a player in %v", name, s.Players)
+	return nil, fmt.Errorf("%s isn't a player in %v", name, g.Players)
 }
 
-func (s *Game) nextPlayer() *Player {
-	for i, p := range s.Players {
-		if p.Name == s.NextPlayer {
-			return &s.Players[(i+1)%len(s.Players)]
+func (g *Game) nextPlayer() *Player {
+	for i, p := range g.Players {
+		if p.Name == g.NextPlayer {
+			return &g.Players[(i+1)%len(g.Players)]
 		}
 	}
-	panic(fmt.Sprintf("s.NextPlayer (%s) was not found in %v", s.NextPlayer, s.Players))
+	panic(fmt.Sprintf("g.NextPlayer (%s) was not found in %v", g.NextPlayer, g.Players))
 }
 
-func (s *Game) currentPlayer() *Player {
-	for i, p := range s.Players {
-		if p.Name == s.NextPlayer {
-			return &s.Players[i]
+func (g *Game) currentPlayer() *Player {
+	for i, p := range g.Players {
+		if p.Name == g.NextPlayer {
+			return &g.Players[i]
 		}
 	}
-	panic(fmt.Sprintf("s.NextPlayer (%s) was not found in %v", s.NextPlayer, s.Players))
+	panic(fmt.Sprintf("g.NextPlayer (%s) was not found in %v", g.NextPlayer, g.Players))
 }
 
 // MoveError is used when the player is attempting an invalid move.
@@ -206,28 +205,26 @@ func NewDeck() []Card {
 // They will play in the order provided.
 func NewGame(names []string) Game {
 	// Create the game state with no cards
-	s := Game{NextPlayer: names[0]}
+	g := Game{NextPlayer: names[0]}
 	for _, n := range names {
-		s.Players = append(s.Players, Player{Name: n})
+		g.Players = append(g.Players, Player{Name: n})
 	}
 
 	// Keep shuffling and dealing until we don't see more than 2 Re's on the table
 	for {
 		cards := NewDeck()
 
-		// Moves 1 card from one slice to another.
 		deal := func(to *[]Card) {
-			*to = append(*to, cards[0])
-			cards = cards[1:]
+			moveCard(cards[0], &cards, to)
 		}
-		deal(&s.Table)
+		deal(&g.Table)
 
 		// Round robin 3 cards to each player, rest go into the Game's deck.
 		for x := 0; x < 3; x++ {
-			for i := range s.Players {
-				deal(&s.Players[i].Hand)
+			for i := range g.Players {
+				deal(&g.Players[i].Hand)
 			}
-			deal(&s.Table)
+			deal(&g.Table)
 		}
 
 		// Check if there are 2 or more Re's on the table.
@@ -239,11 +236,11 @@ func NewGame(names []string) Game {
 		}
 		if r <= 2 {
 			// Good deal.
-			s.Deck = cards
+			g.Deck = cards
 			break
 		}
 	}
-	return s
+	return g
 }
 
 func contains(c Card, s []Card) bool {
@@ -272,9 +269,9 @@ func moveCard(c Card, from *[]Card, to *[]Card) error {
 	return nil
 }
 
-func (s Game) emptyHands() bool {
+func (g Game) emptyHands() bool {
 	// Check whether we need to deal out more cards...
-	for _, p := range s.Players {
+	for _, p := range g.Players {
 		if len(p.Hand) > 0 {
 			return false
 		}
@@ -297,14 +294,14 @@ func mostDenari(p1, p2 *Player) {
 	var a int
 	for _, c := range p1.Grabbed {
 		if c.Suit == Denari {
-			a += 1
+			a++
 		}
 	}
 
 	var b int
 	for _, c := range p2.Grabbed {
 		if c.Suit == Denari {
-			b += 1
+			b++
 		}
 	}
 
@@ -383,41 +380,41 @@ func primera(p1, p2 *Player) {
 	}
 }
 
-func (s *Game) endTurn() error {
+func (g *Game) endTurn() error {
 	// Move the turn to the next player.
-	s.NextPlayer = s.nextPlayer().Name
+	g.NextPlayer = g.nextPlayer().Name
 
-	if s.Ended() {
+	if g.Ended() {
 		// Give the player that last took cards, the remaining cards on the table.
 
-		if p, err := s.player(s.LastPlayerToTake); err != nil {
-			(*p).Grabbed = append((*p).Grabbed, s.Table...)
+		if p, err := g.player(g.LastPlayerToTake); err != nil {
+			(*p).Grabbed = append((*p).Grabbed, g.Table...)
 			panic(fmt.Errorf(`s.LastPlayerToTake is not in the list of players: %v`, err))
 		}
 
 		// Not that it matters, but remove the last cards from the table.
-		s.Table = []Card{}
+		g.Table = []Card{}
 
 		// Count points
-		mostCards(&s.Players[0], &s.Players[1])
-		mostDenari(&s.Players[0], &s.Players[1])
-		setteBello(&s.Players[0], &s.Players[1])
-		primera(&s.Players[0], &s.Players[1])
+		mostCards(&g.Players[0], &g.Players[1])
+		mostDenari(&g.Players[0], &g.Players[1])
+		setteBello(&g.Players[0], &g.Players[1])
+		primera(&g.Players[0], &g.Players[1])
 		return nil
 	}
 
-	if s.emptyHands() {
+	if g.emptyHands() {
 		// Deal out the next 3 cards to each player and remove them from the deck.
-		s.Players[0].Hand = s.Deck[:3]
-		s.Players[1].Hand = s.Deck[3:6]
-		s.Deck = s.Deck[6:]
+		g.Players[0].Hand = g.Deck[:3]
+		g.Players[1].Hand = g.Deck[3:6]
+		g.Deck = g.Deck[6:]
 	}
 
 	return nil
 }
 
 // Take performs a trick where the current place takes cards from the table whos values add up to a card in their hand.
-func (s *Game) Take(card Card, table []Card) error {
+func (g *Game) Take(card Card, table []Card) error {
 	// Validating inputs...
 	// Check that the math works out...
 	sum := 0
@@ -430,12 +427,12 @@ func (s *Game) Take(card Card, table []Card) error {
 
 	// Check that the cards are actually on the table.
 	for _, t := range table {
-		if !contains(t, s.Table) {
-			return cardMissingFromTable(t, s.Table)
+		if !contains(t, g.Table) {
+			return cardMissingFromTable(t, g.Table)
 		}
 	}
 
-	if err := s.currentPlayer().holds(card); err != nil {
+	if err := g.currentPlayer().holds(card); err != nil {
 		return err
 	}
 
@@ -443,7 +440,7 @@ func (s *Game) Take(card Card, table []Card) error {
 	v := card.Value
 	if (v > 7) && (len(table) > 1) {
 		// Check if there is a face match
-		for _, t := range s.Table {
+		for _, t := range g.Table {
 			// If there card in your hand direct equals a card in the pot and you're trying to take > 1.... no no no
 			if (v == t.Value) && (!contains(t, table)) {
 				return perroError(t)
@@ -452,48 +449,45 @@ func (s *Game) Take(card Card, table []Card) error {
 	}
 
 	// Looking good! Lets do the move!
-	p := s.currentPlayer()
+	p := g.currentPlayer()
 
 	if err := moveCard(card, &p.Hand, &p.Grabbed); err != nil {
 		return err
 	}
 
 	for _, t := range table {
-		if err := moveCard(t, &s.Table, &p.Grabbed); err != nil {
+		if err := moveCard(t, &g.Table, &p.Grabbed); err != nil {
 			return err
 		}
 	}
 
 	// Check if that was a scopa...
-	if len(s.Table) == 0 {
+	if len(g.Table) == 0 {
 		p.Scopas++
 	}
 
-	s.LastPlayerToTake = s.currentPlayer().Name
-	s.LastMove = move{Take: &take{s.NextPlayer, card, table}}
-	return s.endTurn()
+	g.LastPlayerToTake = g.currentPlayer().Name
+	g.LastMove = move{Take: &take{g.NextPlayer, card, table}}
+	return g.endTurn()
 }
 
 // Drop performs a trick where the current player drops a card from their hand onto the table.
-func (s *Game) Drop(card Card) error {
+func (g *Game) Drop(card Card) error {
 	// Validating inputs...
-	if err := s.currentPlayer().holds(card); err != nil {
+	if err := g.currentPlayer().holds(card); err != nil {
 		return err
 	}
 
 	// Looks good, drop the card on the table.
-	if err := moveCard(card, &s.currentPlayer().Hand, &s.Table); err != nil {
+	if err := moveCard(card, &g.currentPlayer().Hand, &g.Table); err != nil {
 		return err
 	}
 
-	s.LastMove = move{Drop: &drop{s.NextPlayer, card}}
-	return s.endTurn()
+	g.LastMove = move{Drop: &drop{g.NextPlayer, card}}
+	return g.endTurn()
 }
 
 // Ended is true if the game has ended and there are no more moves.
-func (s Game) Ended() bool {
-	if len(s.Deck) > 0 {
-		return false
-	}
-	return s.emptyHands()
+func (g Game) Ended() bool {
+	return len(g.Deck) == 0 && g.emptyHands()
 }
