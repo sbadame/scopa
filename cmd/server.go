@@ -273,7 +273,7 @@ func (s *server) debug(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) join(ws *websocket.Conn) {
-	match := s.m
+	match := &(s.m)
 	errorf := func(format string, a ...interface{}) {
 		io.WriteString(ws, errorJSON(fmt.Sprintf(format, a...)))
 		ws.Close()
@@ -345,7 +345,7 @@ func (s *server) join(ws *websocket.Conn) {
 }
 
 func (s *server) drop(w http.ResponseWriter, r *http.Request) {
-	match := s.m
+	match := &(s.m)
 	match.Lock()
 	defer match.Unlock()
 
@@ -385,7 +385,7 @@ func (s *server) reset(w http.ResponseWriter, r *http.Request) {
 
 // This will create a new match if one hasn't already been created.
 func (s *server) newMatch(w http.ResponseWriter, r *http.Request) {
-	match := s.m
+	match := &(s.m)
 	p := struct{ OldMatchID int64 }{}
 	if !parseRequestJSON(w, r, &p) {
 		return
@@ -400,14 +400,14 @@ func (s *server) newMatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) matchID(w http.ResponseWriter, r *http.Request) {
-	match := s.m
+	match := &(s.m)
 	match.Lock()
 	defer match.Unlock()
 	io.WriteString(w, fmt.Sprintf(`{"MatchID": %d}`, match.ID))
 }
 
 func (s *server) take(w http.ResponseWriter, r *http.Request) {
-	match := s.m
+	match := &(s.m)
 	match.Lock()
 	defer match.Unlock()
 
