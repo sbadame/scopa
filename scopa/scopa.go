@@ -246,27 +246,30 @@ func NewGame(names []string) Game {
 	return s
 }
 
-func index(c Card, s []Card) int {
-	for i, x := range s {
-		if x == c {
-			return i
+func contains(c Card, s []Card) bool {
+	for _, i := range s {
+		if i == c {
+			return true
 		}
 	}
-	return -1
+	return false
 }
 
-func contains(c Card, s []Card) bool {
-	return index(c, s) != -1
-}
-
-func removeCard(c Card, s []Card) ([]Card, error) {
-	i := index(c, s)
-	if i == -1 {
-		return nil, fmt.Errorf("%v coesn't contain %v", s, c)
+func moveCard(c Card, from *[]Card, to *[]Card) error {
+	found := false
+	for index, x := range *from {
+		if x == c {
+			*from = append((*from)[:index], (*from)[index+1:]...)
+			found = true
+		}
 	}
 
-	// Remove the card
-	return append(s[:i], s[i+1:]...), nil
+	if !found {
+		return fmt.Errorf("%v coesn't contain %v", *from, c)
+	}
+
+	*to = append(*to, c)
+	return nil
 }
 
 func (s Game) emptyHands() bool {
@@ -451,28 +454,15 @@ func (s *Game) Take(card Card, table []Card) error {
 	// Looking good! Lets do the move!
 	p := s.currentPlayer()
 
-	// Remove the card from the player's hand.
-	newHand, err := removeCard(card, p.Hand)
-	if err != nil {
+	if err := moveCard(card, &p.Hand, &p.Grabbed); err != nil {
 		return err
 	}
 
-	p.Hand = newHand
-
-	// Put it into the player's grabbed pile.
-	p.Grabbed = append(p.Grabbed, card)
-
-	// Remove the cards from the table.
 	for _, t := range table {
-		newTable, err := removeCard(t, s.Table)
-		if err != nil {
+		if err := moveCard(t, &s.Table, &p.Grabbed); err != nil {
 			return err
 		}
-		s.Table = newTable
 	}
-
-	// Add them to the player's pile
-	p.Grabbed = append(p.Grabbed, table...)
 
 	// Check if that was a scopa...
 	if len(s.Table) == 0 {
@@ -492,20 +482,11 @@ func (s *Game) Drop(card Card) error {
 	}
 
 	// Looks good, drop the card on the table.
-	p := s.currentPlayer()
-
-	// Remove the card from the player's hand.
-	newHand, err := removeCard(card, p.Hand)
-	if err != nil {
+	if err := moveCard(card, &s.currentPlayer().Hand, &s.Table); err != nil {
 		return err
 	}
 
-	p.Hand = newHand
-
-	// Add the card to the table
-	s.Table = append(s.Table, card)
 	s.LastMove = move{Drop: &drop{s.NextPlayer, card}}
-
 	return s.endTurn()
 }
 
