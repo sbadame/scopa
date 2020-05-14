@@ -12,14 +12,14 @@ func TestTake(t *testing.T) {
 		hand      []Card
 		table     []Card
 		wantErr   error
-		wantState *State
+		wantGame *Game
 	}{
 		"simple": {
 			card:  Card{Denari, 7},
 			take:  []Card{Card{Coppe, 7}},
 			hand:  []Card{Card{Denari, 7}},
 			table: []Card{Card{Coppe, 7}, Card{Denari, 10}},
-			wantState: &State{
+			wantGame: &Game{
 				NextPlayer: "2",
 				Table:      []Card{},
 				Players: []Player{
@@ -47,7 +47,7 @@ func TestTake(t *testing.T) {
 			take:  []Card{Card{Coppe, 7}},
 			hand:  []Card{Card{Denari, 7}},
 			table: []Card{Card{Coppe, 7}},
-			wantState: &State{
+			wantGame: &Game{
 				NextPlayer:       "2",
 				Table:            []Card{},
 				LastPlayerToTake: "1",
@@ -101,7 +101,7 @@ func TestTake(t *testing.T) {
 				Card{Coppe, 9},
 				Card{Coppe, 3},
 			},
-			wantState: &State{
+			wantGame: &Game{
 				NextPlayer:       "2",
 				LastPlayerToTake: "1",
 				Table: []Card{
@@ -129,7 +129,7 @@ func TestTake(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		s := State{
+		s := Game{
 			NextPlayer: "1",
 			Table:      tc.table,
 			Players: []Player{
@@ -143,8 +143,8 @@ func TestTake(t *testing.T) {
 			t.Errorf("%s: mismatch error (-want +got):\n%s", name, d)
 		}
 
-		if tc.wantState != nil {
-			if d := cmp.Diff(*tc.wantState, s); d != "" {
+		if tc.wantGame != nil {
+			if d := cmp.Diff(*tc.wantGame, s); d != "" {
 				t.Errorf("%s: mismatch state (-want +got):\n%s", name, d)
 			}
 		}

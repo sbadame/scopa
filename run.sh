@@ -1,0 +1,3 @@
+#!/bin/bash
+
+exec go run github.com/sbadame/scopa/cmd/...

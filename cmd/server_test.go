@@ -7,13 +7,13 @@ import (
 )
 
 func TestMatch(t *testing.T) {
-	m := newMatch()
+	m := Match{}
 	sb := make(scoreboard)
-	if _, err := m.join(-1, "a", sb); err != nil {
+	if _, err := m.addPlayer(-1, "a", sb); err != nil {
 		t.Errorf("Couldn't join a match: %v", err)
 	}
 
-	if _, err := m.join(-1, "b", sb); err != nil {
+	if _, err := m.addPlayer(-1, "b", sb); err != nil {
 		t.Errorf("Couldn't join a match: %v", err)
 	}
 
