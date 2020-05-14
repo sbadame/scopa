@@ -14,6 +14,7 @@
             body,
             #game {
                 height: 100%;
+                overflow: hidden; /* Due to collapsing margins, height 100% causes a scrollbar to appear. */
             }
 
             body {
@@ -159,18 +160,20 @@
         <dialog id="endMatch_dialog">
             <!-- See renderEndMatch -->
         </dialog>
-        <table id="scorecard">
-            <thead>
+        <template id="scorecard_template">
+            <table id="scorecard">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                </thead>
                 <tr>
-                    <th></th>
-                    <th></th>
+                    <td></td>
+                    <td></td>
                 </tr>
-            </thead>
-            <tr>
-                <td></td>
-                <td></td>
-            </tr>
-        </table>
+            </table>
+        </template>
         <div id="game"></div>
         <dialog id="nickname_dialog">
             <form method="dialog">
@@ -203,28 +206,33 @@
             var globalLatestMove = '';
 
             function renderScorecard(scorecard) {
+                // Remove the previous scorecard if it exits.
+                document.querySelector('#scorecard')?.remove();
+                if (Object.keys(scorecard).length == 0) return;
+
                 const tallies = (times) => {
                     let r = '';
                     for (let i = 0; i < times; i++) {
+                        if (i != 0 && i % 5 == 0) {
+                            r += ' ';
+                        }
                         r += '|';
                     }
                     return r;
                 };
 
-                if (nicknames) {
-                    for (let n of Object.keys(nicknames)) {
-                        document.querySelector(`#scorecard th:nth-child(${n})`).innerText = nicknames[n];
-                    }
+                const domNode = document.querySelector('#scorecard_template').content.cloneNode(/* deep */ true);
+                for (let n of Object.keys(nicknames)) {
+                    domNode.querySelector(`th:nth-child(${n})`).innerText = nicknames[n];
                 }
 
-                if (!scorecard) return;
                 const players = Object.keys(scorecard).sort();
                 for (var x = 0; x < players.length; x++) {
                     var score = scorecard[players[x]];
-                    document.querySelector(`#scorecard th:nth-child(${x + 1})`).innerText = players[x];
-                    document.querySelector(`#scorecard td:nth-child(${x + 1})`).innerText =
-                        tallies(score) + ` (${score})`;
+                    domNode.querySelector(`th:nth-child(${x + 1})`).innerText = players[x];
+                    domNode.querySelector(`td:nth-child(${x + 1})`).innerText = tallies(score) + ` (${score})`;
                 }
+                document.body.appendChild(domNode);
             }
 
             function updateActionButton() {
@@ -401,7 +409,6 @@
                     d['Message'] = showDialog;
                     d['Nicknames'] = (n) => {
                         nicknames = n;
-                        renderScorecard();
                         player = window.localStorage.getItem('Nickname');
                     };
                     d['State'] = renderState;
