@@ -6,7 +6,7 @@ if ! git diff --quiet; then
   exit 1
 fi
 
-GOOS=linux GOARCH=amd64 go build -ldflags "-X main.gitCommit=$(git rev-parse HEAD)" cmd/server.go || exit 2
+GOOS=linux GOARCH=amd64 go build -o server -ldflags "-X main.gitCommit=$(git rev-parse HEAD)" 'github.com/sbadame/scopa/cmd/...' || exit 2
 
 gcloud compute instances add-metadata --zone "us-east1-b" "scopaserver" --project "scopa-273021" --metadata startup-script='
 #!/bin/bash
