@@ -110,13 +110,14 @@ func (g *Game) JSONForPlayer(name string) ([]byte, error) {
 		return nil, err
 	}
 	j := struct {
-		NextPlayer       string
-		LastPlayerToTake string
-		Table            []Card
-		Players          []Player
-		Player           Player
-		LastMove         move
-		Ended            bool
+		NextPlayer           string
+		LastPlayerToTake     string
+		Table                []Card
+		Players              []Player
+		Player               Player
+		LastMove             move
+		Ended                bool
+		RemainingCardsInDeck int
 	}{
 		g.NextPlayer,
 		g.LastPlayerToTake,
@@ -125,6 +126,7 @@ func (g *Game) JSONForPlayer(name string) ([]byte, error) {
 		*p,
 		g.LastMove,
 		g.Ended(),
+		len(g.Deck),
 	}
 	for _, p := range g.Players {
 		j.Players = append(j.Players, p)

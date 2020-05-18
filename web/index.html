@@ -21,6 +21,31 @@
                 margin: 0px;
             }
 
+            #progress {
+                width: 100%;
+                height: 10px;
+            }
+
+            #progress .bar {
+                display: inline-block;
+                /* width is set through javascript */
+                transition: width 2s ease;
+                height: 100%;
+                background: rgb(239, 217, 18);
+                margin: 0px;
+                padding: 0px;
+                border: 0px;
+            }
+
+            #progress .indicator {
+                margin: 0px;
+                padding: 0px;
+                width: 10px;
+                height: 100%;
+                display: inline-block;
+                background: linear-gradient(90deg, rgb(239, 217, 18) 0%, rgb(0, 0, 0, 0) 100%);
+            }
+
             #scorecard {
                 position: absolute;
                 border-collapse: collapse;
@@ -174,6 +199,7 @@
                 </tr>
             </table>
         </template>
+        <div id="progress"> <div class="bar"></div><div class="indicator"></div> </div>
         <div id="game"></div>
         <dialog id="nickname_dialog">
             <form method="dialog">
@@ -204,6 +230,11 @@
 
             // Contains the latest move
             var globalLatestMove = '';
+
+            function renderProgress(remainingCardsInDeck) {
+                const percent = Math.floor((1 - remainingCardsInDeck / 40) * 100) + '%';
+                document.querySelector('#progress .bar').style.width = percent;
+            }
 
             function renderScorecard(scorecard) {
                 // Remove the previous scorecard if it exits.
@@ -292,6 +323,8 @@
                 // Clear out the current selections...
                 globalTableSelected = [];
                 globalPlayerSelected = [];
+
+                renderProgress(state.RemainingCardsInDeck);
 
                 // Check if the game has ended and do something totally different if that's the case.
                 if (state.Ended) {
